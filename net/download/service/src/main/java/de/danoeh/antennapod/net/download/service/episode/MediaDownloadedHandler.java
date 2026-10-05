@@ -8,7 +8,7 @@ import androidx.annotation.NonNull;
 
 import de.danoeh.antennapod.model.MediaMetadataRetrieverCompat;
 import de.danoeh.antennapod.model.feed.Feed;
-import de.danoeh.antennapod.net.admark.AdmarkService;
+import de.danoeh.antennapod.net.admark.AdmarkIntegration;
 import de.danoeh.antennapod.net.sync.serviceinterface.SynchronizationQueue;
 import de.danoeh.antennapod.ui.chapters.ChapterUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -115,7 +115,8 @@ public class MediaDownloadedHandler implements Runnable {
                     new EpisodeAction.Builder(item, EpisodeAction.DOWNLOAD)
                         .currentTimestamp()
                         .build());
-            AdmarkService.getInstance().enqueueAnalysisIfNeeded(item);
+            // FORK: admark
+            AdmarkIntegration.onMediaDownloaded(item);
         }
     }
 

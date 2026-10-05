@@ -27,6 +27,7 @@ public class MainPreferencesFragment extends AnimatedPreferenceFragment {
     private static final String PREF_SCREEN_DOWNLOADS = "prefScreenDownloads";
     private static final String PREF_SCREEN_IMPORT_EXPORT = "prefScreenImportExport";
     private static final String PREF_SCREEN_SYNCHRONIZATION = "prefScreenSynchronization";
+    // FORK: admark
     private static final String PREF_SCREEN_ADMARK = "prefScreenAdmark";
     private static final String PREF_DOCUMENTATION = "prefDocumentation";
     private static final String PREF_VIEW_FORUM = "prefViewForum";
@@ -51,6 +52,7 @@ public class MainPreferencesFragment extends AnimatedPreferenceFragment {
         int packageHash = getContext().getPackageName().hashCode();
         boolean isUpstreamRelease = packageHash == 1790437538;
         boolean isUpstreamDebug = packageHash == -1190467065;
+        // FORK: packaging (xyz.liland.antennapod)
         boolean isForkRelease = packageHash == -108642157;
         boolean isForkDebug = packageHash == -2143696584;
         if (!isUpstreamRelease && !isUpstreamDebug && !isForkRelease && !isForkDebug) {
@@ -98,6 +100,7 @@ public class MainPreferencesFragment extends AnimatedPreferenceFragment {
             ((PreferenceActivity) getActivity()).openScreen(R.xml.preferences_synchronization);
             return true;
         });
+        // FORK: admark
         findPreference(PREF_SCREEN_ADMARK).setOnPreferenceClickListener(preference -> {
             ((PreferenceActivity) getActivity()).openScreen(R.xml.preferences_admark);
             return true;
@@ -178,6 +181,7 @@ public class MainPreferencesFragment extends AnimatedPreferenceFragment {
                 .addBreadcrumb(PreferenceActivity.getTitleOfPage(R.xml.preferences_autodownload));
         config.index(R.xml.preferences_synchronization)
                 .addBreadcrumb(PreferenceActivity.getTitleOfPage(R.xml.preferences_synchronization));
+        // FORK: admark
         config.index(R.xml.preferences_admark)
                 .addBreadcrumb(PreferenceActivity.getTitleOfPage(R.xml.preferences_admark));
         config.index(R.xml.preferences_notifications)

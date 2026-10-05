@@ -9,7 +9,7 @@ import de.danoeh.antennapod.net.download.serviceinterface.AutoDownloadManager;
 import de.danoeh.antennapod.net.download.serviceinterface.FeedUpdateManager;
 import de.danoeh.antennapod.net.sync.service.SynchronizationQueueImpl;
 import de.danoeh.antennapod.net.sync.serviceinterface.SynchronizationQueue;
-import de.danoeh.antennapod.storage.preferences.AdmarkPreferences;
+import de.danoeh.antennapod.net.admark.AdmarkIntegration;
 import de.danoeh.antennapod.storage.preferences.SynchronizationSettings;
 import de.danoeh.antennapod.storage.preferences.SynchronizationCredentials;
 import de.danoeh.antennapod.storage.preferences.PlaybackPreferences;
@@ -42,7 +42,8 @@ public class ClientConfigurator {
         }
         PodDBAdapter.init(context);
         UserPreferences.init(context);
-        AdmarkPreferences.init(context);
+        // FORK: admark
+        AdmarkIntegration.init(context);
         SynchronizationCredentials.init(context);
         SynchronizationSettings.init(context);
         UsageStatistics.init(context);

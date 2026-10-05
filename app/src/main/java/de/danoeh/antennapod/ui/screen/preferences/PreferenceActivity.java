@@ -75,7 +75,7 @@ public class PreferenceActivity extends ToolbarActivity implements SearchPrefere
             prefFragment = new AutoDownloadPreferencesFragment();
         } else if (screen == R.xml.preferences_synchronization) {
             prefFragment = new SynchronizationPreferencesFragment();
-        } else if (screen == R.xml.preferences_admark) {
+        } else if (screen == R.xml.preferences_admark) { // FORK: admark
             prefFragment = new AdmarkPreferencesFragment();
         } else if (screen == R.xml.preferences_playback) {
             prefFragment = new PlaybackPreferencesFragment();
@@ -104,7 +104,7 @@ public class PreferenceActivity extends ToolbarActivity implements SearchPrefere
             return R.string.user_interface_label;
         } else if (preferences == R.xml.preferences_synchronization) {
             return R.string.synchronization_pref;
-        } else if (preferences == R.xml.preferences_admark) {
+        } else if (preferences == R.xml.preferences_admark) { // FORK: admark
             return R.string.pref_admark_title;
         } else if (preferences == R.xml.preferences_notifications) {
             return R.string.notification_pref_fragment;

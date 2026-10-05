@@ -2,38 +2,75 @@
 
 ## Sync status
 
-Feature branch is based on upstream `AntennaPod/AntennaPod` `develop` (merged into
-the fork before implementation).
+Feature branch is based on upstream `AntennaPod/AntennaPod` `develop`.
+
+## Isolation strategy (personal fork)
+
+Almost all admark logic lives outside upstream-owned code paths so rebasing onto
+`upstream/develop` stays cheap.
+
+### Dedicated code
+
+| Area | Location |
+| --- | --- |
+| HTTP client, parse, cache, enqueue | `:net:admark` (`AdmarkClient`, `AdmarkService`, …) |
+| Public façade | `AdmarkIntegration` + `AdmarkPlaybackController` |
+| Preferences storage | `storage/preferences` → `AdmarkPreferences` |
+| Settings UI | `AdmarkPreferencesFragment` + `preferences_admark.xml` |
+| Strings | `ui/i18n` keys prefixed `pref_admark_` / `admark_` |
+
+### Core touchpoints (search `FORK: admark`)
+
+Keep these diffs tiny — call the façade only; never put HTTP/business logic here.
+
+| File | Hook |
+| --- | --- |
+| `ClientConfigurator` | `AdmarkIntegration.init(context)` |
+| `Media3PlaybackService` | attach/detach controller; `onPlayableChanged` / `onPositionMs` |
+| `FeedUpdateWorker` | `AdmarkIntegration.onNewFeedItems(...)` after `updateFeed` |
+| `MediaDownloadedHandler` | `AdmarkIntegration.onMediaDownloaded(item)` |
+| `PreferenceActivity` / `MainPreferencesFragment` | register/open admark screen |
+| `ui/preferences/.../preferences.xml` | one Settings entry |
+| `settings.gradle` + module `build.gradle` deps | `:net:admark` |
+
+Packaging-only markers use `FORK: packaging` (`applicationId`, package-hash allowlist).
+
+### Re-apply after upstream sync
+
+```bash
+git fetch upstream develop
+git rebase upstream/develop
+# If a touchpoint file conflicts: keep upstream body, re-insert the // FORK: admark
+# one-liner(s) calling AdmarkIntegration / AdmarkPlaybackController.
+rg 'FORK: admark' -n
+./gradlew :app:assembleDebug :net:admark:test
+```
+
+Do **not** re-merge admark business logic into player/download classes.
 
 ## Upstream investigation (AntennaPod)
 
-Existing skip/chapter machinery reused conceptually:
-
 | Feature | Location | Notes |
 | --- | --- | --- |
-| Skip intro/outro | `SkipUtils`, feed prefs `feed_skip_intro` / `feed_skip_ending` | Fixed seconds per podcast; toast/snackbar on skip |
-| Skip silence | ExoPlayer `setSkipSilenceEnabled` | Audio-level, not ranges |
-| Chapters | RSS Podlove SC, Podcast Index JSON URL, ID3/Vorbis/M4A | Loaded via `ChapterUtils`; no auto-skip of ad chapters |
-| FF/RW intervals | `UserPreferences` fast-forward/rewind secs | Manual skip buttons |
+| Skip intro/outro | `SkipUtils`, feed prefs | Fixed seconds per podcast |
+| Skip silence | ExoPlayer | Not range-based |
+| Chapters | Podlove / Podcast Index / media tags | No auto-skip of ad chapters |
+| FF/RW intervals | `UserPreferences` | Manual buttons |
 
-**Hypothesis check:** chapters can represent ad boundaries, but AntennaPod does **not**
-auto-skip chapter ranges today. admark ranges are handled separately (like skip-ending)
-inside `Media3PlaybackService`'s 1s position observer.
+admark ranges are handled like skip-ending: position observer → façade seek.
 
 ## Provisional HTTP contract (UNVERIFIED)
 
-`andersliland/alto` was inaccessible to the agent. Paths below are provisional and
-centralized in `AdmarkApiPaths`. Adjust after reading `services/admark`.
+`andersliland/alto` was inaccessible to the agent. Paths are provisional in
+`AdmarkApiPaths`.
 
 ### Auth
 
-Optional `Authorization: Bearer <token>` when a token is set in Settings → admark.
+Optional `Authorization: Bearer <token>` when set in Settings → admark.
 
 ### Get marks
 
 `GET {base}/v1/episodes/marks?media_url=...&guid=...&feed_url=...`
-
-Success JSON (flexible parser also accepts `ads`/`skips`, second-based fields):
 
 ```json
 {
@@ -44,43 +81,28 @@ Success JSON (flexible parser also accepts `ads`/`skips`, second-based fields):
 }
 ```
 
-Statuses: `ready`, `pending`, `missing`, `failed`.
+Statuses: `ready`, `pending`, `missing`, `failed`. Parser also accepts `ads`/`skips`
+and second-based fields.
 
 ### Enqueue analysis
 
-`POST {base}/v1/episodes/analyze`
-
-```json
-{
-  "media_url": "https://cdn.example/ep.mp3",
-  "guid": "episode-guid",
-  "feed_url": "https://example.com/feed.xml",
-  "title": "Episode title"
-}
-```
-
-Expected `200`/`202` with `status` of `pending` or `ready` (and optional `ranges`).
+`POST {base}/v1/episodes/analyze` with `{media_url,guid,feed_url,title}`.
 
 ### Polling
 
-When status is `pending`, the client polls `GET .../marks` a few times with backoff
-during playback / ensure calls. There is no separate job-id endpoint in this
-provisional contract (gap if alto uses job IDs).
+On `pending`, client polls `GET .../marks` with short backoff (no job-id API in
+this provisional contract).
 
 ## Known gaps
 
-1. **Paths/query/body field names unverified** against alto OpenAPI.
-2. No webhook receiver in AntennaPod (mobile clients typically cannot expose one);
-   new-episode trigger is client-initiated on feed refresh / download.
-3. No persistent on-disk marks cache yet (in-memory + refetch).
-4. APK install/run may be unavailable in the cloud agent if no emulator/device.
+1. Paths unverified against alto OpenAPI.
+2. No webhook receiver (client-initiated enqueue on refresh/download).
+3. In-memory marks cache only.
+4. Optional future: CI copy of Release APK into private F-Droid (see `FDROID.md`).
 
 ## How to test
 
-1. Settings → admark → set base URL (+ token if required), enable auto-skip and
-   auto-enqueue.
-2. Refresh a feed with a new episode → logcat `AdmarkService` should show analyze
-   enqueue when marks are missing.
-3. Play an episode that already has `ready` ranges → playback should seek past each
-   range and show a snackbar.
-4. If HTTP 404 on `/v1/...`, update `AdmarkApiPaths` to match alto and rebuild.
+1. Settings → admark → enable, set base URL (+ token), auto-skip / auto-enqueue.
+2. Refresh feed / download → logcat `AdmarkService` / `AdmarkPlayback`.
+3. Play episode with `ready` ranges → seek past ads + snackbar.
+4. `./gradlew --console=plain :net:admark:test`
