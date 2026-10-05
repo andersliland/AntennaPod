@@ -1,3 +1,7 @@
+# Builds a signed freeRelease APK and publishes it as a GitHub Release asset.
+# Obtainium consumes that asset directly; a private F-Droid repo (andersliland/alto)
+# can copy the same APK after each v* release. A future optional job may push into
+# the F-Droid PVC — not required for this workflow to succeed. See docs/FDROID.md.
 name: Release
 
 on:

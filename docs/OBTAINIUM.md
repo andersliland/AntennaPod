@@ -1,7 +1,11 @@
-# Obtainium / GitHub Releases distribution
+# Distribution: Obtainium + private F-Droid
 
-This fork ships as a separate Android app id so it can sit beside Play Store /
-F-Droid AntennaPod:
+This fork supports **two** install/update channels that share the same signed
+APK built by GitHub Actions:
+
+1. **Obtainium** ← GitHub Releases (this doc)
+2. **Private F-Droid** ← copy that APK into the alto binary repo — see
+   [FDROID.md](./FDROID.md)
 
 | Build | `applicationId` |
 | --- | --- |
@@ -52,15 +56,23 @@ git push origin v3.12.3-fork.1
 
 Or run workflow **Release** via `workflow_dispatch`.
 
-The workflow builds `:app:assembleFreeRelease`, signs with the secrets above, and
-uploads `AntennaPod-<version>.apk` to a GitHub Release.
+The workflow (`.github/workflows/release.yml`) builds `:app:assembleFreeRelease`,
+signs with the secrets above, and uploads `AntennaPod-<version>.apk` to a GitHub
+Release. That asset is the source for both Obtainium and (after copy) the private
+F-Droid repo.
 
 ## Install with Obtainium
 
 1. Install [Obtainium](https://github.com/ImranR98/Obtainium).
 2. Add app → source = this GitHub repo (`andersliland/AntennaPod`).
-3. Prefer releases / APK filter, e.g. `AntennaPod-.*\.apk` (or `free/release` artifacts if you change the workflow).
+3. Prefer releases / APK filter, e.g. `AntennaPod-.*\.apk`.
 4. Updates track new GitHub Release assets with the same `applicationId`.
+
+## Private F-Droid
+
+After each release, copy the APK into the self-hosted F-Droid repo in
+`andersliland/alto`. Client setup (Neo Store / Droid-ify / F-Droid) and optional
+Shizuku silent installs: [FDROID.md](./FDROID.md).
 
 ## Local signed build (optional)
 
