@@ -27,6 +27,7 @@ public class MainPreferencesFragment extends AnimatedPreferenceFragment {
     private static final String PREF_SCREEN_DOWNLOADS = "prefScreenDownloads";
     private static final String PREF_SCREEN_IMPORT_EXPORT = "prefScreenImportExport";
     private static final String PREF_SCREEN_SYNCHRONIZATION = "prefScreenSynchronization";
+    private static final String PREF_SCREEN_ADMARK = "prefScreenAdmark";
     private static final String PREF_DOCUMENTATION = "prefDocumentation";
     private static final String PREF_VIEW_FORUM = "prefViewForum";
     private static final String PREF_SEND_BUG_REPORT = "prefSendBugReport";
@@ -91,6 +92,10 @@ public class MainPreferencesFragment extends AnimatedPreferenceFragment {
         });
         findPreference(PREF_SCREEN_SYNCHRONIZATION).setOnPreferenceClickListener(preference -> {
             ((PreferenceActivity) getActivity()).openScreen(R.xml.preferences_synchronization);
+            return true;
+        });
+        findPreference(PREF_SCREEN_ADMARK).setOnPreferenceClickListener(preference -> {
+            ((PreferenceActivity) getActivity()).openScreen(R.xml.preferences_admark);
             return true;
         });
         findPreference(PREF_SCREEN_IMPORT_EXPORT).setOnPreferenceClickListener(preference -> {
@@ -169,6 +174,8 @@ public class MainPreferencesFragment extends AnimatedPreferenceFragment {
                 .addBreadcrumb(PreferenceActivity.getTitleOfPage(R.xml.preferences_autodownload));
         config.index(R.xml.preferences_synchronization)
                 .addBreadcrumb(PreferenceActivity.getTitleOfPage(R.xml.preferences_synchronization));
+        config.index(R.xml.preferences_admark)
+                .addBreadcrumb(PreferenceActivity.getTitleOfPage(R.xml.preferences_admark));
         config.index(R.xml.preferences_notifications)
                 .addBreadcrumb(PreferenceActivity.getTitleOfPage(R.xml.preferences_notifications));
         config.index(R.xml.feed_settings)

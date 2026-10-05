@@ -42,6 +42,9 @@ import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
 import de.danoeh.antennapod.model.feed.FeedPreferences;
 import de.danoeh.antennapod.model.feed.VolumeAdaptionSetting;
+import de.danoeh.antennapod.net.admark.AdmarkEpisodeMarks;
+import de.danoeh.antennapod.net.admark.AdmarkService;
+import de.danoeh.antennapod.net.admark.AdmarkSkipRange;
 import de.danoeh.antennapod.net.common.NetworkUtils;
 import de.danoeh.antennapod.net.sync.serviceinterface.SynchronizationQueue;
 import de.danoeh.antennapod.playback.base.MediaItemAdapter;
@@ -57,6 +60,7 @@ import de.danoeh.antennapod.playback.service.internal.ClockSleepTimer;
 import de.danoeh.antennapod.playback.service.internal.EpisodeSleepTimer;
 import de.danoeh.antennapod.storage.database.DBReader;
 import de.danoeh.antennapod.storage.database.DBWriter;
+import de.danoeh.antennapod.storage.preferences.AdmarkPreferences;
 import de.danoeh.antennapod.storage.preferences.PlaybackPreferences;
 import de.danoeh.antennapod.storage.preferences.SleepTimerPreferences;
 import de.danoeh.antennapod.storage.preferences.SleepTimerType;
@@ -76,6 +80,7 @@ import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.List;
@@ -93,6 +98,8 @@ public class Media3PlaybackService extends MediaLibraryService {
     private Disposable mediaLoaderDisposable;
     private Disposable positionObserverDisposable;
     private Disposable queueLoaderDisposable;
+    private Disposable admarkLoaderDisposable;
+    private List<AdmarkSkipRange> currentAdmarkRanges = Collections.emptyList();
     private long lastPositionSaveTime = 0;
     private String playedMediaId = null;
     private int playbackStartPosition = -1;
@@ -485,6 +492,10 @@ public class Media3PlaybackService extends MediaLibraryService {
             queueLoaderDisposable.dispose();
             queueLoaderDisposable = null;
         }
+        if (admarkLoaderDisposable != null) {
+            admarkLoaderDisposable.dispose();
+            admarkLoaderDisposable = null;
+        }
         saveCurrentPosition();
         if (loudnessEnhancer != null) {
             loudnessEnhancer.release();
@@ -532,8 +543,51 @@ public class Media3PlaybackService extends MediaLibraryService {
                                 if (SkipUtils.skipEndingIfNecessary(this, currentPlayable, position, duration, speed)) {
                                     player.seekTo(player.getDuration());
                                 }
+                                skipAdmarkRangeIfNecessary(position);
                             }
                         }, error -> Log.e(TAG, "Position observer error", error));
+    }
+
+    private void skipAdmarkRangeIfNecessary(long position) {
+        if (!AdmarkPreferences.isEnabled() || !AdmarkPreferences.isAutoSkipEnabled()
+                || currentAdmarkRanges.isEmpty() || player == null) {
+            return;
+        }
+        for (AdmarkSkipRange range : currentAdmarkRanges) {
+            if (range.contains(position)) {
+                Log.d(TAG, "Skipping admark range " + range.getStartMs() + "-" + range.getEndMs());
+                player.seekTo(range.getEndMs());
+                EventBus.getDefault().post(new MessageEvent(getString(R.string.admark_skipped_snackbar)));
+                return;
+            }
+        }
+    }
+
+    private void loadAdmarkRanges(FeedMedia media) {
+        currentAdmarkRanges = Collections.emptyList();
+        if (admarkLoaderDisposable != null) {
+            admarkLoaderDisposable.dispose();
+            admarkLoaderDisposable = null;
+        }
+        if (media == null || media.getItem() == null || !AdmarkPreferences.isEnabled()
+                || !AdmarkPreferences.isAutoSkipEnabled()) {
+            return;
+        }
+        final FeedItem item = media.getItem();
+        admarkLoaderDisposable = Single.fromCallable(() -> AdmarkService.getInstance().getMarksForPlayback(item))
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(marks -> {
+                    if (currentPlayable != null && currentPlayable.getItem() != null
+                            && currentPlayable.getItem().getId() == item.getId()
+                            && marks.hasSkippableRanges()) {
+                        currentAdmarkRanges = new ArrayList<>(marks.getRanges());
+                        skipAdmarkRangeIfNecessary(player != null ? player.getCurrentPosition() : 0);
+                    } else if (marks.getStatus() == AdmarkEpisodeMarks.Status.PENDING
+                            || marks.getStatus() == AdmarkEpisodeMarks.Status.MISSING) {
+                        currentAdmarkRanges = Collections.emptyList();
+                    }
+                }, error -> Log.d(TAG, "Admark load failed: " + error.getMessage()));
     }
 
     private void cancelPositionObserver() {
@@ -618,6 +672,7 @@ public class Media3PlaybackService extends MediaLibraryService {
             applyVolumeAdaption(1.0f);
         }
         updatePlaybackPreferences();
+        loadAdmarkRanges(currentPlayable);
         WidgetUpdater.WidgetState widgetState = new WidgetUpdater.WidgetState(currentPlayable,
                 PlaybackService.isRunning ? PlayerStatus.PLAYING : PlayerStatus.PAUSED,
                 currentPlayable.getPosition(), currentPlayable.getDuration(), speed);

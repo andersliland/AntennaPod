@@ -449,6 +449,20 @@
     <!-- Preferences -->
     <string name="project_pref">Project</string>
     <string name="synchronization_pref">Synchronization</string>
+    <string name="pref_admark_title">admark</string>
+    <string name="pref_admark_sum">Self-hosted ad skip timestamps</string>
+    <string name="pref_admark_enabled_title">Enable admark</string>
+    <string name="pref_admark_enabled_sum">Fetch skippable ad ranges from your admark service</string>
+    <string name="pref_admark_base_url_title">Service base URL</string>
+    <string name="pref_admark_base_url_sum">Tailscale or home-cluster URL, e.g. https://admark.example.ts.net</string>
+    <string name="pref_admark_token_title">Auth token</string>
+    <string name="pref_admark_token_sum">Optional bearer token (stored on device only)</string>
+    <string name="pref_admark_token_set_sum">Token saved</string>
+    <string name="pref_admark_auto_skip_title">Auto-skip ads</string>
+    <string name="pref_admark_auto_skip_sum">Automatically seek past admark ranges during playback</string>
+    <string name="pref_admark_auto_enqueue_title">Analyze new episodes</string>
+    <string name="pref_admark_auto_enqueue_sum">Enqueue admark analysis when new episodes appear or downloads finish</string>
+    <string name="admark_skipped_snackbar">Skipped ad</string>
     <string name="synchronization_sum">Synchronize with other devices</string>
     <string name="automation">Automation</string>
     <string name="download_pref_details">Details</string>
