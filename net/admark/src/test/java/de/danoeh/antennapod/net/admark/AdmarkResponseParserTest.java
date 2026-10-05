@@ -10,8 +10,8 @@ import static org.junit.Assert.assertTrue;
 @RunWith(RobolectricTestRunner.class)
 public class AdmarkResponseParserTest {
     @Test
-    public void parseReadyRangesMillis() throws Exception {
-        String json = "{\"status\":\"ready\",\"ranges\":[{\"start_ms\":1000,\"end_ms\":5000,\"label\":\"ad\"}]}";
+    public void parseSucceededSegmentsSeconds() throws Exception {
+        String json = "{\"status\":\"succeeded\",\"segments\":[{\"start\":1.0,\"end\":5.0,\"label\":\"ad\"}]}";
         AdmarkEpisodeMarks marks = AdmarkResponseParser.parse(json);
         assertEquals(AdmarkEpisodeMarks.Status.READY, marks.getStatus());
         assertEquals(1, marks.getRanges().size());
@@ -21,17 +21,17 @@ public class AdmarkResponseParserTest {
     }
 
     @Test
-    public void parseAdsSeconds() throws Exception {
-        String json = "{\"status\":\"complete\",\"ads\":[{\"start\":12.5,\"end\":40}]}";
+    public void parseRunningWithJobId() throws Exception {
+        String json = "{\"status\":\"running\",\"job_id\":\"job-42\",\"segments\":[]}";
         AdmarkEpisodeMarks marks = AdmarkResponseParser.parse(json);
-        assertEquals(AdmarkEpisodeMarks.Status.READY, marks.getStatus());
-        assertEquals(12500, marks.getRanges().get(0).getStartMs());
-        assertEquals(40000, marks.getRanges().get(0).getEndMs());
+        assertEquals(AdmarkEpisodeMarks.Status.PENDING, marks.getStatus());
+        assertEquals("job-42", marks.getJobId());
     }
 
     @Test
-    public void parsePending() throws Exception {
-        AdmarkEpisodeMarks marks = AdmarkResponseParser.parse("{\"status\":\"pending\",\"ranges\":[]}");
+    public void parseJobIdImpliesPending() throws Exception {
+        AdmarkEpisodeMarks marks = AdmarkResponseParser.parse("{\"job_id\":\"abc\",\"segments\":[]}");
         assertEquals(AdmarkEpisodeMarks.Status.PENDING, marks.getStatus());
+        assertEquals("abc", marks.getJobId());
     }
 }

@@ -22,6 +22,7 @@ import de.danoeh.antennapod.R;
 import de.danoeh.antennapod.activity.MainActivity;
 import de.danoeh.antennapod.databinding.FeedinfoBinding;
 import de.danoeh.antennapod.event.MessageEvent;
+import de.danoeh.antennapod.net.admark.AdmarkIntegration;
 import de.danoeh.antennapod.storage.database.DBWriter;
 import de.danoeh.antennapod.storage.database.DBReader;
 import de.danoeh.antennapod.ui.appstartintent.MainActivityStarter;
@@ -226,6 +227,8 @@ public class FeedInfoFragment extends Fragment implements MaterialToolbar.OnMenu
             viewBinding.header.butSubscribe.setVisibility(View.VISIBLE);
             viewBinding.header.butSubscribe.setOnClickListener(view -> {
                 DBWriter.setFeedState(getContext(), feed, Feed.STATE_SUBSCRIBED);
+                // FORK: admark
+                AdmarkIntegration.onFeedSubscribed(feed);
                 MainActivityStarter mainActivityStarter = new MainActivityStarter(getContext());
                 mainActivityStarter.withOpenFeed(feed.getId());
                 mainActivityStarter.withClearBackStack();

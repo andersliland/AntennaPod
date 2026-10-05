@@ -4,6 +4,7 @@ import android.content.Context;
 
 import androidx.annotation.Nullable;
 
+import de.danoeh.antennapod.model.feed.Feed;
 import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.storage.preferences.AdmarkPreferences;
 
@@ -23,6 +24,10 @@ public final class AdmarkIntegration {
 
     public static void onMediaDownloaded(@Nullable FeedItem item) {
         AdmarkService.getInstance().enqueueAnalysisIfNeeded(item);
+    }
+
+    public static void onFeedSubscribed(@Nullable Feed feed) {
+        AdmarkService.getInstance().registerSubscription(feed);
     }
 
     public static AdmarkPlaybackController createPlaybackController() {

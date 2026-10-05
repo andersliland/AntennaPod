@@ -1,10 +1,10 @@
 # Distribution: Obtainium + private F-Droid
 
-This fork supports **two** install/update channels that share the same signed
-APK built by GitHub Actions:
+Phone install for this fork uses **two** channels that share the same signed
+APK from GitHub Actions:
 
-1. **Obtainium** ← GitHub Releases (this doc)
-2. **Private F-Droid** ← copy that APK into the alto binary repo — see
+1. **Obtainium** ← GitHub Releases (fastest path for a first phone install)
+2. **Private F-Droid** ← publish that APK into the alto fdroid bucket — see
    [FDROID.md](./FDROID.md)
 
 | Build | `applicationId` |
@@ -12,11 +12,28 @@ APK built by GitHub Actions:
 | Release | `xyz.liland.antennapod` |
 | Debug | `xyz.liland.antennapod.debug` |
 
-FileProvider authorities use the same prefix (`…provider` / `…debug.provider`).
+## Obtainium (phone-ready)
 
-## One-time: create a release keystore (local)
+| Setting | Value |
+| --- | --- |
+| GitHub Releases | https://github.com/andersliland/AntennaPod/releases |
+| Repo to add in Obtainium | `https://github.com/andersliland/AntennaPod` |
+| App ID | `xyz.liland.antennapod` |
+| APK filter | `AntennaPod-.*\.apk` |
 
-Do **not** commit the keystore or passwords.
+### Steps on the phone
+
+1. Install [Obtainium](https://github.com/ImranR98/Obtainium).
+2. Add App → paste `https://github.com/andersliland/AntennaPod`.
+3. Prefer releases; set APK filter to `AntennaPod-.*\.apk`.
+4. Install when a Release asset exists (after secrets + first `v*` tag below).
+
+Updates track new GitHub Release assets with the same `applicationId`.
+
+## One-time: release keystore + GitHub secrets
+
+Do **not** commit the keystore or passwords. Create a keystore locally if you
+do not already have one:
 
 ```bash
 keytool -genkeypair -v \
@@ -26,17 +43,10 @@ keytool -genkeypair -v \
   -storepass 'YOUR_STORE_PASSWORD' \
   -keypass 'YOUR_KEY_PASSWORD' \
   -dname 'CN=AntennaPod Fork, OU=Personal, O=Liland, L=Unknown, ST=Unknown, C=NO'
-```
-
-Base64-encode for GitHub Actions:
-
-```bash
 base64 -w0 antennapod-release.keystore > antennapod-release.keystore.b64
 ```
 
-## GitHub Actions secrets
-
-Add these repository secrets (Settings → Secrets and variables → Actions):
+Add these **four** repository secrets (Settings → Secrets and variables → Actions):
 
 | Secret | Value |
 | --- | --- |
@@ -45,9 +55,9 @@ Add these repository secrets (Settings → Secrets and variables → Actions):
 | `RELEASE_KEY_ALIAS` | e.g. `antennapod` |
 | `RELEASE_KEY_PASSWORD` | key password |
 
-## Publish a release APK
+## Publish first phone APK
 
-Tag and push (preferred):
+After the four secrets are set:
 
 ```bash
 git tag v3.12.3-fork.1
@@ -56,23 +66,34 @@ git push origin v3.12.3-fork.1
 
 Or run workflow **Release** via `workflow_dispatch`.
 
-The workflow (`.github/workflows/release.yml`) builds `:app:assembleFreeRelease`,
-signs with the secrets above, and uploads `AntennaPod-<version>.apk` to a GitHub
-Release. That asset is the source for both Obtainium and (after copy) the private
-F-Droid repo.
-
-## Install with Obtainium
-
-1. Install [Obtainium](https://github.com/ImranR98/Obtainium).
-2. Add app → source = this GitHub repo (`andersliland/AntennaPod`).
-3. Prefer releases / APK filter, e.g. `AntennaPod-.*\.apk`.
-4. Updates track new GitHub Release assets with the same `applicationId`.
+`.github/workflows/release.yml` builds `:app:assembleFreeRelease`, signs with
+those secrets, and uploads `AntennaPod-<version>.apk` to
+https://github.com/andersliland/AntennaPod/releases. That asset is the source
+for Obtainium and for F-Droid publish.
 
 ## Private F-Droid
 
-After each release, copy the APK into the self-hosted F-Droid repo in
-`andersliland/alto`. Client setup (Neo Store / Droid-ify / F-Droid) and optional
-Shizuku silent installs: [FDROID.md](./FDROID.md).
+After each release, publish the signed APK into the alto fdroid bucket (see
+[FDROID.md](./FDROID.md)):
+
+```bash
+scripts/publish-from-github-release.sh \
+  --repo andersliland/AntennaPod \
+  --package xyz.liland.antennapod
+```
+
+Client repo URL: `https://fdroid.liland.xyz/fdroid/repo`.
+
+## What's left for Anders (first install)
+
+1. Create/store the release keystore and set the **4** GitHub Actions secrets
+   (do not invent values in CI/docs).
+2. Tag `v*` (or `workflow_dispatch` Release) and wait for the APK on
+   https://github.com/andersliland/AntennaPod/releases.
+3. Add the repo in Obtainium (table above) and install.
+4. Optional: after cluster Signing Secret / alto F-Droid is up, run the publish
+   script and add `https://fdroid.liland.xyz/fdroid/repo` in Neo Store /
+   Droid-ify / F-Droid.
 
 ## Local signed build (optional)
 

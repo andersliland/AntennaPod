@@ -5,51 +5,55 @@ F-Droid repository** on the home cluster (Neo Store, Droid-ify, or the official
 F-Droid client).
 
 The F-Droid *server* is **not** in this Android repo. It lives in
-[`andersliland/alto`](https://github.com/andersliland/alto) (simple binary /
-fdroidrepo-style service added in a parallel PR). This document only describes
-how AntennaPod release APKs feed that repo.
+[`andersliland/alto`](https://github.com/andersliland/alto). This document only
+describes how AntennaPod release APKs feed that repo.
 
 ## Dual distribution
 
 | Channel | Source of truth | Client |
 | --- | --- | --- |
 | GitHub Releases | `.github/workflows/release.yml` on `v*` (or `workflow_dispatch`) | [Obtainium](./OBTAINIUM.md) |
-| Private F-Droid | Copy signed APK from the GitHub Release into the alto F-Droid repo | Neo Store / Droid-ify / F-Droid |
+| Private F-Droid | Publish signed APK from the GitHub Release into the alto fdroid bucket | Neo Store / Droid-ify / F-Droid |
 
 `applicationId` is `xyz.liland.antennapod` so installs do not clash with Play or
 public F-Droid AntennaPod. Use the **same signing key** for every release so
 F-Droid and Obtainium can update the same installed app.
 
+## Client repo URL
+
+| Setting | Value |
+| --- | --- |
+| F-Droid repo URL | `https://fdroid.liland.xyz/fdroid/repo` |
+| Package | `xyz.liland.antennapod` |
+
+Add that URL in Neo Store, Droid-ify, or F-Droid → Repositories. Prefer HTTPS
+over Tailscale / home network if the public hostname is not yet live. Repo
+signing key / fingerprint comes from the alto F-Droid deployment.
+
 ## After each `v*` release
 
 1. Wait for the **Release** workflow to finish and publish
-   `AntennaPod-<version>.apk` on the GitHub Release.
-2. Copy that APK into the alto F-Droid binary repo (PVC / drop directory —
-   exact path is defined in alto’s F-Droid service docs).
-3. Refresh/update the repo index on the F-Droid server (per alto ops).
-4. On the phone, the F-Droid client (or Neo Store / Droid-ify) shows the update
-   when it next syncs that repo URL (typically Tailscale / home HTTPS).
+   `AntennaPod-<version>.apk` on
+   https://github.com/andersliland/AntennaPod/releases.
+2. Publish into the alto fdroid bucket (from the alto repo / ops host):
 
-Until alto’s F-Droid service is ready, step 2–3 are manual or skipped; Obtainium
-from GitHub Releases still works.
+```bash
+scripts/publish-from-github-release.sh \
+  --repo andersliland/AntennaPod \
+  --package xyz.liland.antennapod
+```
+
+3. Confirm the package appears under `https://fdroid.liland.xyz/fdroid/repo`.
+4. On the phone, sync the private repo; the client shows the update.
+
+Until alto’s F-Droid service and Signing Secret on the cluster are ready, skip
+steps 2–4; Obtainium from GitHub Releases still works.
 
 ## Future CI (optional, not blocking)
 
 A later improvement can add a post-release job that downloads the Release asset
-and pushes it into the F-Droid PVC/repo (e.g. `scp`/`rclone`/workflow call into
-alto). **Do not block** merging this AntennaPod PR on that automation —
-`release.yml` remains the artifact source.
-
-## Phone clients
-
-Add the private repo URL (from alto) in one of:
-
-- [Neo Store](https://github.com/NeoApplications/Neo-Store)
-- [Droid-ify](https://github.com/Droid-ify/client)
-- Official F-Droid client → Repositories → add repo
-
-Prefer HTTPS over Tailscale or another private network. Repo signing key /
-fingerprint comes from the alto F-Droid deployment.
+and pushes it into the F-Droid PVC/repo. **Do not block** AntennaPod merges on
+that automation — `release.yml` remains the artifact source.
 
 ## Optional: Shizuku silent installs
 
