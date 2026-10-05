@@ -11,7 +11,7 @@ android {
     enableKotlin true
 
     defaultConfig {
-        applicationId "de.danoeh.antennapod"
+        applicationId "xyz.liland.antennapod"
         minSdk 25
         targetSdk 36
         versionCode 1
