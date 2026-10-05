@@ -34,6 +34,7 @@ import de.danoeh.antennapod.model.download.DownloadResult;
 import de.danoeh.antennapod.model.feed.Feed;
 import de.danoeh.antennapod.model.download.DownloadRequest;
 
+import de.danoeh.antennapod.net.admark.AdmarkIntegration;
 import de.danoeh.antennapod.net.download.serviceinterface.DownloadRequestBuilder;
 import de.danoeh.antennapod.parser.feed.FeedHandlerResult;
 import de.danoeh.antennapod.storage.database.NonSubscribedFeedsCleaner;
@@ -239,6 +240,10 @@ public class FeedUpdateWorker extends Worker {
         }
         feedHandlerResult.feed.setLastRefreshAttempt(System.currentTimeMillis());
         Feed savedFeed = FeedDatabaseWriter.updateFeed(getApplicationContext(), feedHandlerResult.feed, false);
+        // FORK: admark
+        if (savedFeed != null) {
+            AdmarkIntegration.onNewFeedItems(savedFeed.getItems());
+        }
 
         if (request.getFeedfileId() == 0) {
             return savedFeed; // No download logs for new subscriptions

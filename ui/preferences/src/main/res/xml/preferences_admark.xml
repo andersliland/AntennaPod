@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        xmlns:search="http://schemas.android.com/apk/com.bytehamster.lib.preferencesearch">
+
+    <SwitchPreferenceCompat
+            android:key="prefAdmarkEnabled"
+            android:title="@string/pref_admark_enabled_title"
+            android:summary="@string/pref_admark_enabled_sum"
+            android:defaultValue="false"/>
+
+    <EditTextPreference
+            android:key="prefAdmarkBaseUrl"
+            android:title="@string/pref_admark_base_url_title"
+            android:summary="@string/pref_admark_base_url_sum"
+            android:dialogTitle="@string/pref_admark_base_url_title"
+            android:inputType="textUri"
+            android:dependency="prefAdmarkEnabled"
+            search:ignore="true"/>
+
+    <EditTextPreference
+            android:key="prefAdmarkToken"
+            android:title="@string/pref_admark_token_title"
+            android:summary="@string/pref_admark_token_sum"
+            android:dialogTitle="@string/pref_admark_token_title"
+            android:inputType="textPassword"
+            android:dependency="prefAdmarkEnabled"
+            search:ignore="true"/>
+
+    <SwitchPreferenceCompat
+            android:key="prefAdmarkAutoSkip"
+            android:title="@string/pref_admark_auto_skip_title"
+            android:summary="@string/pref_admark_auto_skip_sum"
+            android:defaultValue="true"
+            android:dependency="prefAdmarkEnabled"/>
+
+    <SwitchPreferenceCompat
+            android:key="prefAdmarkAutoEnqueue"
+            android:title="@string/pref_admark_auto_enqueue_title"
+            android:summary="@string/pref_admark_auto_enqueue_sum"
+            android:defaultValue="true"
+            android:dependency="prefAdmarkEnabled"/>
+</PreferenceScreen>

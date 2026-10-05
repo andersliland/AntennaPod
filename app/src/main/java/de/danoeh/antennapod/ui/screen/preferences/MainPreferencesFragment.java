@@ -27,6 +27,8 @@ public class MainPreferencesFragment extends AnimatedPreferenceFragment {
     private static final String PREF_SCREEN_DOWNLOADS = "prefScreenDownloads";
     private static final String PREF_SCREEN_IMPORT_EXPORT = "prefScreenImportExport";
     private static final String PREF_SCREEN_SYNCHRONIZATION = "prefScreenSynchronization";
+    // FORK: admark
+    private static final String PREF_SCREEN_ADMARK = "prefScreenAdmark";
     private static final String PREF_DOCUMENTATION = "prefDocumentation";
     private static final String PREF_VIEW_FORUM = "prefViewForum";
     private static final String PREF_SEND_BUG_REPORT = "prefSendBugReport";
@@ -48,7 +50,12 @@ public class MainPreferencesFragment extends AnimatedPreferenceFragment {
         // This means that your application needs to be open-source under the GPL, too.
         // It must also include a prominent copyright notice.
         int packageHash = getContext().getPackageName().hashCode();
-        if (packageHash != 1790437538 && packageHash != -1190467065) {
+        boolean isUpstreamRelease = packageHash == 1790437538;
+        boolean isUpstreamDebug = packageHash == -1190467065;
+        // FORK: packaging (xyz.liland.antennapod)
+        boolean isForkRelease = packageHash == -108642157;
+        boolean isForkDebug = packageHash == -2143696584;
+        if (!isUpstreamRelease && !isUpstreamDebug && !isForkRelease && !isForkDebug) {
             findPreference(PREF_CATEGORY_PROJECT).setVisible(false);
             Preference copyrightNotice = new Preference(getContext());
             copyrightNotice.setIcon(R.drawable.ic_info_white);
@@ -59,7 +66,7 @@ public class MainPreferencesFragment extends AnimatedPreferenceFragment {
                     + " If you can read this message, the developers of this modification"
                     + " violate the GNU General Public License (GPL).");
             findPreference(PREF_CATEGORY_PROJECT).getParent().addPreference(copyrightNotice);
-        } else if (packageHash == -1190467065) {
+        } else if (isUpstreamDebug || isForkDebug) {
             Preference debugNotice = new Preference(getContext());
             debugNotice.setIcon(R.drawable.ic_info_white);
             debugNotice.getIcon().mutate()
@@ -91,6 +98,11 @@ public class MainPreferencesFragment extends AnimatedPreferenceFragment {
         });
         findPreference(PREF_SCREEN_SYNCHRONIZATION).setOnPreferenceClickListener(preference -> {
             ((PreferenceActivity) getActivity()).openScreen(R.xml.preferences_synchronization);
+            return true;
+        });
+        // FORK: admark
+        findPreference(PREF_SCREEN_ADMARK).setOnPreferenceClickListener(preference -> {
+            ((PreferenceActivity) getActivity()).openScreen(R.xml.preferences_admark);
             return true;
         });
         findPreference(PREF_SCREEN_IMPORT_EXPORT).setOnPreferenceClickListener(preference -> {
@@ -169,6 +181,9 @@ public class MainPreferencesFragment extends AnimatedPreferenceFragment {
                 .addBreadcrumb(PreferenceActivity.getTitleOfPage(R.xml.preferences_autodownload));
         config.index(R.xml.preferences_synchronization)
                 .addBreadcrumb(PreferenceActivity.getTitleOfPage(R.xml.preferences_synchronization));
+        // FORK: admark
+        config.index(R.xml.preferences_admark)
+                .addBreadcrumb(PreferenceActivity.getTitleOfPage(R.xml.preferences_admark));
         config.index(R.xml.preferences_notifications)
                 .addBreadcrumb(PreferenceActivity.getTitleOfPage(R.xml.preferences_notifications));
         config.index(R.xml.feed_settings)

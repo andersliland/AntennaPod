@@ -35,6 +35,13 @@
             android:summary="@string/synchronization_sum"
             android:icon="@drawable/ic_cloud" />
 
+    <!-- FORK: admark -->
+    <Preference
+            android:key="prefScreenAdmark"
+            android:title="@string/pref_admark_title"
+            android:summary="@string/pref_admark_sum"
+            android:icon="@drawable/ic_fast_forward" />
+
     <Preference
             android:key="prefScreenImportExport"
             android:title="@string/import_export_pref"
