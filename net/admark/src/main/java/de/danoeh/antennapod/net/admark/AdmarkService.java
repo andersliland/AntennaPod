@@ -116,6 +116,14 @@ public final class AdmarkService {
                 || marks.getStatus() == AdmarkEpisodeMarks.Status.UNKNOWN) {
             if (enqueueIfMissing && AdmarkPreferences.isAutoEnqueueEnabled()) {
                 marks = client.enqueueAnalyze(item);
+                if (marks.getStatus() == AdmarkEpisodeMarks.Status.READY
+                        && !marks.hasSkippableRanges()) {
+                    AdmarkEpisodeMarks refreshed = client.fetchMarks(item);
+                    if (refreshed.getStatus() == AdmarkEpisodeMarks.Status.READY
+                            && refreshed.hasSkippableRanges()) {
+                        marks = refreshed;
+                    }
+                }
             }
         }
 
