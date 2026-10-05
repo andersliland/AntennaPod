@@ -42,6 +42,8 @@ import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
 import de.danoeh.antennapod.model.feed.FeedPreferences;
 import de.danoeh.antennapod.model.feed.VolumeAdaptionSetting;
+import de.danoeh.antennapod.net.admark.AdmarkIntegration;
+import de.danoeh.antennapod.net.admark.AdmarkPlaybackController;
 import de.danoeh.antennapod.net.common.NetworkUtils;
 import de.danoeh.antennapod.net.sync.serviceinterface.SynchronizationQueue;
 import de.danoeh.antennapod.playback.base.MediaItemAdapter;
@@ -93,6 +95,8 @@ public class Media3PlaybackService extends MediaLibraryService {
     private Disposable mediaLoaderDisposable;
     private Disposable positionObserverDisposable;
     private Disposable queueLoaderDisposable;
+    // FORK: admark
+    private final AdmarkPlaybackController admarkPlayback = AdmarkIntegration.createPlaybackController();
     private long lastPositionSaveTime = 0;
     private String playedMediaId = null;
     private int playbackStartPosition = -1;
@@ -107,6 +111,25 @@ public class Media3PlaybackService extends MediaLibraryService {
     public void onCreate() {
         super.onCreate();
         EventBus.getDefault().register(this);
+        // FORK: admark
+        admarkPlayback.attach(new AdmarkPlaybackController.Host() {
+            @Override
+            public void seekTo(long positionMs) {
+                if (player != null) {
+                    player.seekTo(positionMs);
+                }
+            }
+
+            @Override
+            public long getPositionMs() {
+                return player != null ? player.getCurrentPosition() : 0;
+            }
+
+            @Override
+            public void onSkippedAd() {
+                EventBus.getDefault().post(new MessageEvent(getString(R.string.admark_skipped_snackbar)));
+            }
+        });
         DefaultMediaNotificationProvider notificationProvider = new DefaultMediaNotificationProvider(this,
                 session -> R.id.notification_playing,
                 NotificationUtils.CHANNEL_ID_PLAYING, R.string.notification_channel_playing);
@@ -485,6 +508,8 @@ public class Media3PlaybackService extends MediaLibraryService {
             queueLoaderDisposable.dispose();
             queueLoaderDisposable = null;
         }
+        // FORK: admark
+        admarkPlayback.detach();
         saveCurrentPosition();
         if (loudnessEnhancer != null) {
             loudnessEnhancer.release();
@@ -532,6 +557,8 @@ public class Media3PlaybackService extends MediaLibraryService {
                                 if (SkipUtils.skipEndingIfNecessary(this, currentPlayable, position, duration, speed)) {
                                     player.seekTo(player.getDuration());
                                 }
+                                // FORK: admark
+                                admarkPlayback.onPositionMs(position);
                             }
                         }, error -> Log.e(TAG, "Position observer error", error));
     }
@@ -618,6 +645,8 @@ public class Media3PlaybackService extends MediaLibraryService {
             applyVolumeAdaption(1.0f);
         }
         updatePlaybackPreferences();
+        // FORK: admark
+        admarkPlayback.onPlayableChanged(currentPlayable);
         WidgetUpdater.WidgetState widgetState = new WidgetUpdater.WidgetState(currentPlayable,
                 PlaybackService.isRunning ? PlayerStatus.PLAYING : PlayerStatus.PAUSED,
                 currentPlayable.getPosition(), currentPlayable.getDuration(), speed);
