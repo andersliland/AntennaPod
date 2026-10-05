@@ -8,7 +8,7 @@
     <string name="general_collapse_button">Collapse</string>
 
     <!-- Activity and fragment titles -->
-    <string name="provider_authority" translatable="false">de.danoeh.antennapod.provider</string>
+    <string name="provider_authority" translatable="false">xyz.liland.antennapod.provider</string>
     <string name="feed_update_receiver_name">Update subscriptions</string>
     <string name="statistics_label">Statistics</string>
     <string name="statistics_label_short">Stats</string>
