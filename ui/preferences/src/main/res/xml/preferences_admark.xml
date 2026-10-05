@@ -14,6 +14,7 @@
             android:title="@string/pref_admark_base_url_title"
             android:summary="@string/pref_admark_base_url_sum"
             android:dialogTitle="@string/pref_admark_base_url_title"
+            android:defaultValue="https://admark.liland.xyz"
             android:inputType="textUri"
             android:dependency="prefAdmarkEnabled"
             search:ignore="true"/>

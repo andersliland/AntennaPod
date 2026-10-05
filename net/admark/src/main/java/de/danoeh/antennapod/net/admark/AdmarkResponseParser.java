@@ -17,51 +17,45 @@ public final class AdmarkResponseParser {
             return AdmarkEpisodeMarks.missing();
         }
         JSONObject root = new JSONObject(body);
-        AdmarkEpisodeMarks.Status status = parseStatus(root.optString("status", "ready"));
-        JSONArray rangesArray = firstArray(root, "ranges", "ads", "skips", "marks");
+        String jobId = firstString(root, "job_id", "jobId", "id");
+        AdmarkEpisodeMarks.Status status = parseStatus(root.optString("status", ""));
+        JSONArray segmentsArray = firstArray(root, "segments");
         List<AdmarkSkipRange> ranges = new ArrayList<>();
-        if (rangesArray != null) {
-            for (int i = 0; i < rangesArray.length(); i++) {
-                JSONObject item = rangesArray.getJSONObject(i);
+        if (segmentsArray != null) {
+            for (int i = 0; i < segmentsArray.length(); i++) {
+                JSONObject item = segmentsArray.getJSONObject(i);
                 AdmarkSkipRange range = parseRange(item);
                 if (range != null && range.isValid()) {
                     ranges.add(range);
                 }
             }
         }
+        if (status == AdmarkEpisodeMarks.Status.UNKNOWN && !ranges.isEmpty()) {
+            status = AdmarkEpisodeMarks.Status.READY;
+        }
+        if (status == AdmarkEpisodeMarks.Status.UNKNOWN && jobId != null && !jobId.isEmpty()) {
+            status = AdmarkEpisodeMarks.Status.PENDING;
+        }
         if (status == AdmarkEpisodeMarks.Status.READY && ranges.isEmpty()
-                && root.has("start_ms") && root.has("end_ms")) {
+                && (root.has("start") || root.has("end"))) {
             AdmarkSkipRange single = parseRange(root);
             if (single != null && single.isValid()) {
                 ranges.add(single);
             }
         }
-        return new AdmarkEpisodeMarks(status, ranges);
+        return new AdmarkEpisodeMarks(status, ranges, jobId);
     }
 
     private static AdmarkSkipRange parseRange(JSONObject item) {
-        Long startMs = readMillis(item, "start_ms", "startMs", "start_time_ms");
-        Long endMs = readMillis(item, "end_ms", "endMs", "end_time_ms");
-        if (startMs == null || endMs == null) {
-            Double startSec = readSeconds(item, "start", "startTime", "start_time");
-            Double endSec = readSeconds(item, "end", "endTime", "end_time");
-            if (startSec == null || endSec == null) {
-                return null;
-            }
-            startMs = Math.round(startSec * 1000.0);
-            endMs = Math.round(endSec * 1000.0);
+        Double startSec = readSeconds(item, "start", "startTime", "start_time");
+        Double endSec = readSeconds(item, "end", "endTime", "end_time");
+        if (startSec == null || endSec == null) {
+            return null;
         }
+        long startMs = Math.round(startSec * 1000.0);
+        long endMs = Math.round(endSec * 1000.0);
         String label = item.optString("label", item.optString("title", "ad"));
         return new AdmarkSkipRange(startMs, endMs, label);
-    }
-
-    private static Long readMillis(JSONObject item, String... keys) {
-        for (String key : keys) {
-            if (item.has(key) && !item.isNull(key)) {
-                return item.optLong(key);
-            }
-        }
-        return null;
     }
 
     private static Double readSeconds(JSONObject item, String... keys) {
@@ -83,20 +77,34 @@ public final class AdmarkResponseParser {
         return null;
     }
 
+    private static String firstString(JSONObject root, String... keys) {
+        for (String key : keys) {
+            if (!root.has(key) || root.isNull(key)) {
+                continue;
+            }
+            String value = root.optString(key, null);
+            if (value != null && !value.isEmpty()) {
+                return value;
+            }
+        }
+        return null;
+    }
+
     private static AdmarkEpisodeMarks.Status parseStatus(String raw) {
         if (raw == null || raw.isEmpty()) {
-            return AdmarkEpisodeMarks.Status.READY;
+            return AdmarkEpisodeMarks.Status.UNKNOWN;
         }
         switch (raw.toLowerCase(Locale.ROOT)) {
+            case "succeeded":
             case "ready":
             case "complete":
             case "completed":
             case "done":
                 return AdmarkEpisodeMarks.Status.READY;
+            case "running":
             case "pending":
             case "processing":
             case "queued":
-            case "running":
                 return AdmarkEpisodeMarks.Status.PENDING;
             case "missing":
             case "not_found":
