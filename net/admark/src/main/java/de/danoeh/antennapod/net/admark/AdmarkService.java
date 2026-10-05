@@ -1,11 +1,13 @@
 package de.danoeh.antennapod.net.admark;
 
+import android.text.TextUtils;
 import android.util.Log;
 import android.util.LruCache;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import de.danoeh.antennapod.model.feed.Feed;
 import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.storage.preferences.AdmarkPreferences;
 
@@ -57,6 +59,19 @@ public final class AdmarkService {
         }
     }
 
+    public void registerSubscription(@Nullable Feed feed) {
+        if (feed == null || !AdmarkPreferences.isEnabled()) {
+            return;
+        }
+        executor.execute(() -> {
+            try {
+                client.registerSubscription(feed);
+            } catch (Exception e) {
+                Log.d(TAG, "registerSubscription failed: " + e.getMessage());
+            }
+        });
+    }
+
     @NonNull
     public AdmarkEpisodeMarks getMarksForPlayback(@NonNull FeedItem item) {
         if (!AdmarkPreferences.isEnabled()) {
@@ -105,9 +120,17 @@ public final class AdmarkService {
         }
 
         if (poll && marks.getStatus() == AdmarkEpisodeMarks.Status.PENDING) {
+            String jobId = marks.getJobId();
             for (int attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++) {
                 Thread.sleep(POLL_DELAY_MS);
-                marks = client.fetchMarks(item);
+                if (!TextUtils.isEmpty(jobId)) {
+                    marks = client.fetchJob(jobId);
+                } else {
+                    marks = client.fetchMarks(item);
+                }
+                if (!TextUtils.isEmpty(marks.getJobId())) {
+                    jobId = marks.getJobId();
+                }
                 if (marks.getStatus() != AdmarkEpisodeMarks.Status.PENDING) {
                     break;
                 }

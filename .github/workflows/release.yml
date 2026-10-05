@@ -1,7 +1,10 @@
 # Builds a signed freeRelease APK and publishes it as a GitHub Release asset.
-# Obtainium consumes that asset directly; a private F-Droid repo (andersliland/alto)
-# can copy the same APK after each v* release. A future optional job may push into
-# the F-Droid PVC — not required for this workflow to succeed. See docs/FDROID.md.
+# Obtainium: https://github.com/andersliland/AntennaPod/releases (app id
+# xyz.liland.antennapod). Private F-Droid: publish the same APK with alto
+# scripts/publish-from-github-release.sh --repo andersliland/AntennaPod
+# --package xyz.liland.antennapod → https://fdroid.liland.xyz/fdroid/repo.
+# Requires secrets RELEASE_KEYSTORE_BASE64, RELEASE_STORE_PASSWORD,
+# RELEASE_KEY_ALIAS, RELEASE_KEY_PASSWORD. See docs/OBTAINIUM.md + docs/FDROID.md.
 name: Release
 
 on:

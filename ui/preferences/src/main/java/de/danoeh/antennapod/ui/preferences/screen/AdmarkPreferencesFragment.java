@@ -34,12 +34,7 @@ public class AdmarkPreferencesFragment extends AnimatedPreferenceFragment {
         EditTextPreference baseUrl = findPreference(AdmarkPreferences.PREF_BASE_URL);
         if (baseUrl != null) {
             baseUrl.setText(AdmarkPreferences.getBaseUrl());
-            baseUrl.setSummaryProvider(preference -> {
-                String value = AdmarkPreferences.getBaseUrl();
-                return value.isEmpty()
-                        ? getString(R.string.pref_admark_base_url_sum)
-                        : value;
-            });
+            baseUrl.setSummaryProvider(preference -> AdmarkPreferences.getBaseUrl());
             baseUrl.setOnPreferenceChangeListener((preference, newValue) -> {
                 AdmarkPreferences.setBaseUrl(String.valueOf(newValue));
                 return true;

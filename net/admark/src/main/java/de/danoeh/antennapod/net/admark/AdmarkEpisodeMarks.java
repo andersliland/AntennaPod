@@ -14,10 +14,16 @@ public class AdmarkEpisodeMarks {
 
     private final Status status;
     private final List<AdmarkSkipRange> ranges;
+    private final String jobId;
 
     public AdmarkEpisodeMarks(Status status, List<AdmarkSkipRange> ranges) {
+        this(status, ranges, null);
+    }
+
+    public AdmarkEpisodeMarks(Status status, List<AdmarkSkipRange> ranges, String jobId) {
         this.status = status == null ? Status.UNKNOWN : status;
         this.ranges = ranges == null ? Collections.emptyList() : ranges;
+        this.jobId = jobId;
     }
 
     public Status getStatus() {
@@ -26,6 +32,10 @@ public class AdmarkEpisodeMarks {
 
     public List<AdmarkSkipRange> getRanges() {
         return ranges;
+    }
+
+    public String getJobId() {
+        return jobId;
     }
 
     public boolean hasSkippableRanges() {

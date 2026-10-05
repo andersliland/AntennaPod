@@ -29,6 +29,7 @@ Keep these diffs tiny — call the façade only; never put HTTP/business logic h
 | `Media3PlaybackService` | attach/detach controller; `onPlayableChanged` / `onPositionMs` |
 | `FeedUpdateWorker` | `AdmarkIntegration.onNewFeedItems(...)` after `updateFeed` |
 | `MediaDownloadedHandler` | `AdmarkIntegration.onMediaDownloaded(item)` |
+| `FeedItemlistFragment` / `FeedInfoFragment` | `AdmarkIntegration.onFeedSubscribed(feed)` on subscribe |
 | `PreferenceActivity` / `MainPreferencesFragment` | register/open admark screen |
 | `ui/preferences/.../preferences.xml` | one Settings entry |
 | `settings.gradle` + module `build.gradle` deps | `:net:admark` |
@@ -59,50 +60,62 @@ Do **not** re-merge admark business logic into player/download classes.
 
 admark ranges are handled like skip-ending: position observer → façade seek.
 
-## Provisional HTTP contract (UNVERIFIED)
+## HTTP contract (VERIFIED against alto)
 
-`andersliland/alto` was inaccessible to the agent. Paths are provisional in
-`AdmarkApiPaths`.
+Aligned with `andersliland/alto` `services/admark/ANTENNAPOD_INTEGRATION.md`.
+Paths/headers/JSON below match that contract. The live service at the default
+base URL may still be undeployed; client code is ready when it comes up.
+
+Default base URL: `https://admark.liland.xyz` (overridable in Settings → admark).
 
 ### Auth
 
-Optional `Authorization: Bearer <token>` when set in Settings → admark.
+Optional `X-Alto-Token: <token>` when set in Settings → admark (token string
+stored on device; not sent as `Authorization: Bearer`).
 
-### Get marks
+### Lookup
 
-`GET {base}/v1/episodes/marks?media_url=...&guid=...&feed_url=...`
+`GET {base}/api/lookup?episode_guid=...&feed_url=...`
 
 ```json
 {
-  "status": "ready",
-  "ranges": [
-    { "start_ms": 120000, "end_ms": 150000, "label": "ad" }
+  "status": "succeeded",
+  "segments": [
+    { "start": 120.0, "end": 150.0, "label": "ad" }
   ]
 }
 ```
 
-Statuses: `ready`, `pending`, `missing`, `failed`. Parser also accepts `ads`/`skips`
-and second-based fields.
+Statuses: `succeeded` → READY (skip), `running` → PENDING, plus `missing` /
+`failed`. Segment times are seconds.
 
 ### Enqueue analysis
 
-`POST {base}/v1/episodes/analyze` with `{media_url,guid,feed_url,title}`.
+`POST {base}/api/analyze` with
+`{enclosure_url, episode_guid, feed_url, podcast_title, episode_title}`.
 
-### Polling
+Response may include `job_id` and `status: running`.
 
-On `pending`, client polls `GET .../marks` with short backoff (no job-id API in
-this provisional contract).
+### Job polling
+
+`GET {base}/api/jobs/{job_id}` until `succeeded` (or failure). Fallback:
+re-lookup when no job id is present.
+
+### Subscriptions
+
+`POST {base}/api/subscriptions` with `{feed_url, podcast_title}` when the user
+subscribes to a podcast.
 
 ## Known gaps
 
-1. Paths unverified against alto OpenAPI.
+1. Live service may still be undeployed at the default host.
 2. No webhook receiver (client-initiated enqueue on refresh/download).
 3. In-memory marks cache only.
 4. Optional future: CI copy of Release APK into private F-Droid (see `FDROID.md`).
 
 ## How to test
 
-1. Settings → admark → enable, set base URL (+ token), auto-skip / auto-enqueue.
-2. Refresh feed / download → logcat `AdmarkService` / `AdmarkPlayback`.
-3. Play episode with `ready` ranges → seek past ads + snackbar.
+1. Settings → admark → enable, confirm base URL (+ token), auto-skip / auto-enqueue.
+2. Subscribe / refresh feed / download → logcat `AdmarkService` / `AdmarkPlayback`.
+3. Play episode with `succeeded` + `segments` → seek past ads + snackbar.
 4. `./gradlew --console=plain :net:admark:test`

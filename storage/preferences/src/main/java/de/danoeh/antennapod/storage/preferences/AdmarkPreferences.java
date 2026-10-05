@@ -11,6 +11,7 @@ public abstract class AdmarkPreferences {
     public static final String PREF_TOKEN = "prefAdmarkToken";
     public static final String PREF_AUTO_SKIP = "prefAdmarkAutoSkip";
     public static final String PREF_AUTO_ENQUEUE = "prefAdmarkAutoEnqueue";
+    public static final String DEFAULT_BASE_URL = "https://admark.liland.xyz";
 
     private static SharedPreferences prefs;
 
@@ -30,9 +31,9 @@ public abstract class AdmarkPreferences {
     }
 
     public static String getBaseUrl() {
-        String url = prefs.getString(PREF_BASE_URL, "");
-        if (url == null) {
-            return "";
+        String url = prefs.getString(PREF_BASE_URL, DEFAULT_BASE_URL);
+        if (TextUtils.isEmpty(url)) {
+            url = DEFAULT_BASE_URL;
         }
         while (url.endsWith("/")) {
             url = url.substring(0, url.length() - 1);
