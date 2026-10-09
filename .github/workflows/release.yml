@@ -16,7 +16,7 @@ on:
     paths-ignore:
       - "docs/**"
       - "**/*.md"
-      - ".github/ISSUE_TEMPLATE/**"
+      - ".github/**"
     tags:
       - "v*-fork.*"
   workflow_dispatch:
@@ -129,3 +129,29 @@ jobs:
           files: ${{ steps.meta.outputs.apk_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Tells alto to rebuild the private F-Droid index now instead of waiting
+      # for the next CronJob tick. Needs repo secret ALTO_DISPATCH_TOKEN: a
+      # fine-grained PAT on andersliland/alto with "Contents: Read and write"
+      # (what POST /repos/{owner}/{repo}/dispatches requires). Missing secret
+      # -> warning only, the release itself has already succeeded.
+      - name: Notify alto F-Droid (repository_dispatch)
+        if: github.event_name != 'workflow_dispatch' || inputs.publish
+        env:
+          ALTO_DISPATCH_TOKEN: ${{ secrets.ALTO_DISPATCH_TOKEN }}
+          TAG: ${{ steps.ver.outputs.tag }}
+        run: |
+          if [ -z "${ALTO_DISPATCH_TOKEN}" ]; then
+            echo "::warning::ALTO_DISPATCH_TOKEN not set; F-Droid picks up ${TAG} on its next 30-min tick."
+            exit 0
+          fi
+          code=$(curl -sS -o resp.txt -w '%{http_code}' -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${ALTO_DISPATCH_TOKEN}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/andersliland/alto/dispatches \
+            -d "{\"event_type\":\"fdroid-refresh\",\"client_payload\":{\"repo\":\"${GITHUB_REPOSITORY}\",\"tag\":\"${TAG}\"}}") || code=000
+          if [ "$code" != "204" ]; then
+            echo "::warning::alto repository_dispatch failed (HTTP $code): $(cat resp.txt 2>/dev/null)"
+          else
+            echo "alto fdroid-refresh dispatched for ${TAG}"
+          fi
