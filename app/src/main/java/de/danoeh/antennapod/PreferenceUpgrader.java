@@ -35,9 +35,18 @@ public class PreferenceUpgrader {
         if (oldVersion != newVersion) {
             CrashReportWriter.getFile().delete();
 
-            upgrade(oldVersion, newVersion, context);
+            upgrade(toUpstreamVersionCode(oldVersion), toUpstreamVersionCode(newVersion), context);
             upgraderPrefs.edit().putInt(PREF_CONFIGURED_VERSION, newVersion).apply();
         }
+    }
+
+    /**
+     * Fork releases use versionCode = upstreamVersionCode * 100 + forkReleaseNumber
+     * (see app/build.gradle). Map back to the upstream scale so upstream's
+     * "oldVersion &lt; X" migrations keep firing correctly after rebases.
+     */
+    static int toUpstreamVersionCode(int versionCode) {
+        return versionCode >= 100_000_000 ? versionCode / 100 : versionCode;
     }
 
     private static void upgrade(int oldVersion, int newVersion, Context context) {
