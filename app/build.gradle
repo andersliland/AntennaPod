@@ -15,6 +15,18 @@ android {
         // "1.2.3"          -> 1020395
         versionCode 3120395
         versionName "3.12.3"
+        // Fork releases: CI passes -PforkReleaseNumber=N (from tag vX.Y.Z-fork.N)
+        // so every fork release gets a strictly increasing versionCode
+        // (upstream code * 100 + N). Without this, F-Droid clients and Android
+        // treat fork.2 as the same version as fork.1 and never offer the update.
+        if (project.hasProperty("forkReleaseNumber")) {
+            def forkN = project.property("forkReleaseNumber").toString().toInteger()
+            if (forkN < 1 || forkN > 99) {
+                throw new GradleException("forkReleaseNumber must be 1..99, got " + forkN)
+            }
+            versionCode versionCode * 100 + forkN
+            versionName versionName + "-fork." + forkN
+        }
     }
 
     signingConfigs {

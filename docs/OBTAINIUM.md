@@ -57,43 +57,27 @@ Add these **four** repository secrets (Settings → Secrets and variables → Ac
 
 ## Publish first phone APK
 
-After the four secrets are set:
+Releases are automatic: every push to `develop` (code changes, not docs)
+runs **Release**, which picks the next `v<versionName>-fork.<N>` tag, builds
+`:app:assembleFreeRelease` with `-PforkReleaseNumber=N`, verifies the APK is
+signed with the fork key (cert SHA-256 `f866a4a8…1d140767`), and uploads
+`AntennaPod-<versionName>-fork.<N>.apk` to
+https://github.com/andersliland/AntennaPod/releases.
 
-```bash
-git tag v3.12.3-fork.1
-git push origin v3.12.3-fork.1
-```
+`versionCode = upstream versionCode * 100 + N` (e.g. 3.12.3-fork.2 →
+`312039502`), so each release is strictly newer than the last and Android,
+Obtainium and F-Droid all treat it as an update. `PreferenceUpgrader` maps the
+code back to the upstream scale so upstream migrations still run after rebases.
 
-Or run workflow **Release** via `workflow_dispatch`.
-
-`.github/workflows/release.yml` builds `:app:assembleFreeRelease`, signs with
-those secrets, and uploads `AntennaPod-<version>.apk` to
-https://github.com/andersliland/AntennaPod/releases. That asset is the source
-for Obtainium and for F-Droid publish.
+Manual options: push a `vX.Y.Z-fork.N` tag, or run **Release** via
+`workflow_dispatch` (`publish=false` builds + verifies only and uploads the APK
+as an artifact).
 
 ## Private F-Droid
 
-After each release, publish the signed APK into the alto fdroid bucket (see
-[FDROID.md](./FDROID.md)):
-
-```bash
-scripts/publish-from-github-release.sh \
-  --repo andersliland/AntennaPod \
-  --package xyz.liland.antennapod
-```
-
-Client repo URL: `https://fdroid.liland.xyz/fdroid/repo`.
-
-## What's left for Anders (first install)
-
-1. Create/store the release keystore and set the **4** GitHub Actions secrets
-   (do not invent values in CI/docs).
-2. Tag `v*` (or `workflow_dispatch` Release) and wait for the APK on
-   https://github.com/andersliland/AntennaPod/releases.
-3. Add the repo in Obtainium (table above) and install.
-4. Optional: after cluster Signing Secret / alto F-Droid is up, run the publish
-   script and add `https://fdroid.liland.xyz/fdroid/repo` in Neo Store /
-   Droid-ify / F-Droid.
+No manual step: the alto `fdroid-prod-update` CronJob (every 6h) pulls the
+newest Release APK into the repo and re-signs the index. Client repo URL:
+`https://fdroid.liland.xyz/fdroid/repo` (see [FDROID.md](./FDROID.md)).
 
 ## Local signed build (optional)
 

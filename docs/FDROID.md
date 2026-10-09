@@ -30,30 +30,18 @@ Add that URL in Neo Store, Droid-ify, or F-Droid → Repositories. Prefer HTTPS
 over Tailscale / home network if the public hostname is not yet live. Repo
 signing key / fingerprint comes from the alto F-Droid deployment.
 
-## After each `v*` release
+## After each release (automatic)
 
-1. Wait for the **Release** workflow to finish and publish
-   `AntennaPod-<version>.apk` on
+1. A push to `develop` runs **Release** and publishes
+   `AntennaPod-<version>-fork.<N>.apk` on
    https://github.com/andersliland/AntennaPod/releases.
-2. Publish into the alto fdroid bucket (from the alto repo / ops host):
+2. Within 6h the alto CronJob `fdroid-prod-update` downloads the newest
+   Release APK, runs `fdroid update`, and re-signs the index (force it now with
+   `kubectl -n fdroid-prod create job --from=cronjob/fdroid-prod-update now-$(date +%s)`).
+3. The phone's F-Droid client sees the higher versionCode and offers the update.
 
-```bash
-scripts/publish-from-github-release.sh \
-  --repo andersliland/AntennaPod \
-  --package xyz.liland.antennapod
-```
-
-3. Confirm the package appears under `https://fdroid.liland.xyz/fdroid/repo`.
-4. On the phone, sync the private repo; the client shows the update.
-
-Until alto’s F-Droid service and Signing Secret on the cluster are ready, skip
-steps 2–4; Obtainium from GitHub Releases still works.
-
-## Future CI (optional, not blocking)
-
-A later improvement can add a post-release job that downloads the Release asset
-and pushes it into the F-Droid PVC/repo. **Do not block** AntennaPod merges on
-that automation — `release.yml` remains the artifact source.
+Repo signing key fingerprint (SHA-256):
+`722C1BBFC9F127BAA562CC66489861115BC9B25A766C8A17A43DEB0227F12033`
 
 ## Optional: Shizuku silent installs
 
