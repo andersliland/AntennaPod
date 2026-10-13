@@ -16,9 +16,13 @@ import de.danoeh.antennapod.storage.database.DBReader;
 import de.danoeh.antennapod.storage.database.DBWriter;
 import de.danoeh.antennapod.storage.preferences.AdmarkPreferences;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -31,6 +35,9 @@ public final class AdmarkService {
     private final AdmarkClient client = new AdmarkClient();
     private final LruCache<String, AdmarkEpisodeMarks> cache = new LruCache<>(64);
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private final ExecutorService scanExecutor = Executors.newSingleThreadExecutor();
+    private final Map<String, List<AdmarkScanSummary.Listener>> scanListeners = new HashMap<>();
+    private final Set<String> scanAttempts = ConcurrentHashMap.newKeySet();
     private final Object proxyLock = new Object();
     private Context appContext;
 
@@ -46,8 +53,7 @@ public final class AdmarkService {
     }
 
     public void enqueueAnalysisIfNeeded(@Nullable FeedItem item) {
-        if (item == null || item.getMedia() == null || !AdmarkPreferences.isEnabled()
-                || !AdmarkPreferences.isAutoEnqueueEnabled()) {
+        if (!canTrack(item) || !AdmarkPreferences.isAutoEnqueueEnabled()) {
             return;
         }
         executor.execute(() -> {
@@ -72,7 +78,8 @@ public final class AdmarkService {
     }
 
     public void registerSubscription(@Nullable Feed feed) {
-        if (feed == null || feed.isLocalFeed() || !AdmarkPreferences.isEnabled()) {
+        if (feed == null || feed.isLocalFeed() || !AdmarkPreferences.isEnabled()
+                || !AdmarkPreferences.isFeedIncluded(feed.getId())) {
             return;
         }
         final long feedId = feed.getId();
@@ -125,7 +132,8 @@ public final class AdmarkService {
         boolean allOk = true;
         int routed = 0;
         for (Feed feed : feeds) {
-            if (feed == null || feed.isLocalFeed() || feed.getState() != Feed.STATE_SUBSCRIBED) {
+            if (feed == null || feed.isLocalFeed() || feed.getState() != Feed.STATE_SUBSCRIBED
+                    || !AdmarkPreferences.isFeedIncluded(feed.getId())) {
                 continue;
             }
             boolean ok = proxyFeed(feed.getId(), feed.getTitle(), feed.getDownloadUrl(), true);
@@ -210,9 +218,102 @@ public final class AdmarkService {
         enqueueAnalysisIfNeeded(item);
     }
 
+    public void setFeedIncluded(@Nullable Feed feed, boolean included) {
+        if (feed == null || feed.getId() <= 0 || feed.isLocalFeed()) {
+            return;
+        }
+        AdmarkPreferences.setFeedIncluded(feed.getId(), included);
+        if (!AdmarkPreferences.isEnabled()) {
+            return;
+        }
+        if (included) {
+            registerSubscription(feed);
+            return;
+        }
+        final long feedId = feed.getId();
+        final String currentUrl = feed.getDownloadUrl();
+        final String originalUrl = AdmarkPreferences.getOriginalFeedUrl(feedId);
+        final String podcastId = AdmarkPreferences.getPodcastId(feedId);
+        final String feedUrl = !TextUtils.isEmpty(originalUrl) ? originalUrl : currentUrl;
+        executor.execute(() -> {
+            boolean reverted = true;
+            try {
+                if (!TextUtils.isEmpty(originalUrl) && !TextUtils.isEmpty(currentUrl)
+                        && !originalUrl.equals(currentUrl)) {
+                    DBWriter.updateFeedDownloadURL(currentUrl, originalUrl).get();
+                }
+                try {
+                    client.unregisterSubscription(feedUrl, podcastId);
+                } catch (Exception e) {
+                    Log.d(TAG, "unregister on exclude failed: " + e.getMessage());
+                }
+            } catch (Exception e) {
+                reverted = false;
+                Log.d(TAG, "exclude feed failed: " + e.getMessage());
+            }
+            if (reverted) {
+                AdmarkPreferences.clearProxyMapping(feedId);
+            }
+        });
+    }
+
+    @NonNull
+    public String scanKey(@NonNull FeedItem item) {
+        return cacheKey(item);
+    }
+
+    public void refreshStoredScan(@NonNull FeedItem item, @Nullable AdmarkScanSummary.Listener listener) {
+        if (!canTrack(item)) {
+            dispatch(listener, null);
+            return;
+        }
+        String key = cacheKey(item);
+        String stored = AdmarkPreferences.getScanSummary(key);
+        if (stored != null) {
+            dispatch(listener, AdmarkScanSummary.parse(stored));
+            return;
+        }
+        synchronized (scanListeners) {
+            if (scanAttempts.contains(key) && !scanListeners.containsKey(key)) {
+                dispatch(listener, null);
+                return;
+            }
+            List<AdmarkScanSummary.Listener> listeners = scanListeners.get(key);
+            boolean start = listeners == null;
+            if (start) {
+                listeners = new ArrayList<>();
+                scanListeners.put(key, listeners);
+                scanAttempts.add(key);
+            }
+            if (listener != null) {
+                listeners.add(listener);
+            }
+            if (!start) {
+                return;
+            }
+        }
+        scanExecutor.execute(() -> {
+            AdmarkScanSummary summary = null;
+            try {
+                summary = AdmarkScanSummary.fromMarks(ensureMarksInternal(item, false, false));
+            } catch (Exception e) {
+                Log.d(TAG, "refreshStoredScan failed: " + e.getMessage());
+            }
+            List<AdmarkScanSummary.Listener> listeners;
+            synchronized (scanListeners) {
+                listeners = scanListeners.remove(key);
+            }
+            if (listeners != null) {
+                for (AdmarkScanSummary.Listener pending : listeners) {
+                    dispatch(pending, summary);
+                }
+            }
+        });
+    }
+
     @NonNull
     public AdmarkEpisodeMarks getMarksForPlayback(@NonNull FeedItem item) {
-        if (!AdmarkPreferences.isEnabled()) {
+        if (!canTrack(item)) {
             return AdmarkEpisodeMarks.missing();
         }
         try {
@@ -256,6 +357,10 @@ public final class AdmarkService {
     private boolean proxyFeedLocked(long feedId, @Nullable String title, @Nullable String currentUrl,
                                     boolean refreshAfterSwap) {
         if (feedId <= 0 || TextUtils.isEmpty(currentUrl) || currentUrl.startsWith(Feed.PREFIX_LOCAL_FOLDER)) {
+            return true;
+        }
+        if (!AdmarkPreferences.isFeedIncluded(feedId)) {
+            AdmarkPreferences.removePendingFeedId(feedId);
             return true;
         }
         String original = AdmarkPreferences.getOriginalFeedUrl(feedId);
@@ -349,6 +454,7 @@ public final class AdmarkService {
         String key = cacheKey(item);
         AdmarkEpisodeMarks cached = cache.get(key);
         if (cached != null && cached.hasSkippableRanges()) {
+            persistScan(key, cached);
             return cached;
         }
 
@@ -387,7 +493,32 @@ public final class AdmarkService {
         }
 
         cache.put(key, marks);
+        persistScan(key, marks);
         return marks;
+    }
+
+    private static void persistScan(@NonNull String key, @Nullable AdmarkEpisodeMarks marks) {
+        String encoded = AdmarkScanSummary.encode(marks);
+        if (encoded != null) {
+            AdmarkPreferences.putScanSummary(key, encoded);
+        }
+    }
+
+    private static boolean canTrack(@Nullable FeedItem item) {
+        if (item == null || item.getMedia() == null || !AdmarkPreferences.isEnabled()) {
+            return false;
+        }
+        if (item.getFeed() != null && item.getFeed().isLocalFeed()) {
+            return false;
+        }
+        return AdmarkPreferences.isFeedIncluded(item.getFeedId());
+    }
+
+    private static void dispatch(@Nullable AdmarkScanSummary.Listener listener,
+                                 @Nullable AdmarkScanSummary summary) {
+        if (listener != null) {
+            listener.onScan(summary);
+        }
     }
 
     private boolean audioShaMatches(@NonNull FeedItem item, @NonNull AdmarkEpisodeMarks marks) {

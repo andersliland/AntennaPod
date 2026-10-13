@@ -32,6 +32,8 @@ public abstract class AdmarkPreferences {
     private static final String KEY_PODCAST_ID_PREFIX = "podcastId.";
     private static final String KEY_PROXIED_URL_PREFIX = "proxiedUrl.";
     private static final String KEY_MEDIA_SHA_PREFIX = "mediaSha.";
+    private static final String KEY_INCLUDE_PREFIX = "include.";
+    private static final String KEY_SCAN_PREFIX = "scan.";
     private static final String KEY_PENDING_FEED_IDS = "pendingProxyFeedIds";
     private static final String KEY_PROXY_STATUS = "proxyStatus";
     private static final String KEY_PROXY_STATUS_DETAIL = "proxyStatusDetail";
@@ -299,5 +301,35 @@ public abstract class AdmarkPreferences {
             return;
         }
         prefs.edit().remove(KEY_MEDIA_SHA_PREFIX + key).apply();
+    }
+
+    public static boolean isFeedIncluded(long feedId) {
+        if (!ready() || feedId <= 0) {
+            return true;
+        }
+        return prefs.getBoolean(KEY_INCLUDE_PREFIX + feedId, true);
+    }
+
+    public static void setFeedIncluded(long feedId, boolean included) {
+        if (!ready() || feedId <= 0) {
+            return;
+        }
+        prefs.edit().putBoolean(KEY_INCLUDE_PREFIX + feedId, included).apply();
+    }
+
+    public static void putScanSummary(@NonNull String key, @Nullable String summary) {
+        if (!ready() || TextUtils.isEmpty(key) || TextUtils.isEmpty(summary)) {
+            return;
+        }
+        prefs.edit().putString(KEY_SCAN_PREFIX + key, summary).apply();
+    }
+
+    @Nullable
+    public static String getScanSummary(@Nullable String key) {
+        if (!ready() || TextUtils.isEmpty(key)) {
+            return null;
+        }
+        String value = prefs.getString(KEY_SCAN_PREFIX + key, null);
+        return TextUtils.isEmpty(value) ? null : value;
     }
 }

@@ -470,6 +470,16 @@
     <string name="pref_admark_proxy_status_error">admark unreachable — retrying in background</string>
     <string name="pref_admark_route_all_title">Route all via admark</string>
     <string name="pref_admark_route_all_sum">Register every subscription and switch download URLs to the proxied feed</string>
+    <string name="pref_admark_include_title">Include in admark</string>
+    <string name="pref_admark_include_sum">Register this podcast and analyze its episodes</string>
+    <string name="admark_badge">Admark</string>
+    <string name="admark_detail_ready">%1$s · %2$s · %3$s</string>
+    <string name="admark_detail_pending">%1$s · Analyzing</string>
+    <string name="admark_detail_failed">%1$s · Analysis failed</string>
+    <plurals name="admark_segments">
+        <item quantity="one">%d ad segment</item>
+        <item quantity="other">%d ad segments</item>
+    </plurals>
     <string name="admark_skipped_snackbar">Skipped ad</string>
     <string name="synchronization_sum">Synchronize with other devices</string>
     <string name="automation">Automation</string>

@@ -52,6 +52,26 @@ public class AdmarkEpisodeMarks {
         return status == Status.READY && !ranges.isEmpty();
     }
 
+    public int getSegmentCount() {
+        int count = 0;
+        for (AdmarkSkipRange range : ranges) {
+            if (range.isValid()) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    public long getTotalAdMs() {
+        long total = 0;
+        for (AdmarkSkipRange range : ranges) {
+            if (range.isValid()) {
+                total += range.getEndMs() - range.getStartMs();
+            }
+        }
+        return total;
+    }
+
     public static AdmarkEpisodeMarks missing() {
         return new AdmarkEpisodeMarks(Status.MISSING, Collections.emptyList());
     }

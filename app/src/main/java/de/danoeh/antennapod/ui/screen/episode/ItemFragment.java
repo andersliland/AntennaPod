@@ -1,5 +1,6 @@
 package de.danoeh.antennapod.ui.screen.episode;
 
+import android.app.Activity;
 import android.content.Context;
 import android.os.Bundle;
 import android.text.Layout;
@@ -58,6 +59,7 @@ import de.danoeh.antennapod.ui.common.DateFormatter;
 import de.danoeh.antennapod.ui.common.ImagePlaceholder;
 import de.danoeh.antennapod.ui.common.ThemeUtils;
 import de.danoeh.antennapod.ui.episodes.ImageResourceUtils;
+import de.danoeh.antennapod.ui.episodeslist.AdmarkEpisodeBadge;
 import de.danoeh.antennapod.ui.screen.feed.FeedItemlistFragment;
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
 import io.reactivex.rxjava3.core.Maybe;
@@ -285,6 +287,12 @@ public class ItemFragment extends Fragment {
                         .apply(options))
                 .apply(options)
                 .into(viewBinding.imgvCover);
+        // FORK: admark
+        Activity activity = getActivity();
+        if (activity != null) {
+            AdmarkEpisodeBadge.bind(null, viewBinding.txtvAdmark, item, activity,
+                    id -> this.item != null && this.item.getId() == id, null);
+        }
         updateButtons();
     }
 

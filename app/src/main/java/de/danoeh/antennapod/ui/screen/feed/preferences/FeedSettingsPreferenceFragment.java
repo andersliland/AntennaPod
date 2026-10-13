@@ -35,10 +35,12 @@ import de.danoeh.antennapod.model.feed.Feed;
 import de.danoeh.antennapod.model.feed.FeedFilter;
 import de.danoeh.antennapod.model.feed.FeedPreferences;
 import de.danoeh.antennapod.model.feed.VolumeAdaptionSetting;
+import de.danoeh.antennapod.net.admark.AdmarkIntegration;
 import de.danoeh.antennapod.net.download.serviceinterface.FeedUpdateManager;
 import de.danoeh.antennapod.storage.database.DBReader;
 import de.danoeh.antennapod.storage.database.DBWriter;
 import de.danoeh.antennapod.storage.database.FeedDatabaseWriter;
+import de.danoeh.antennapod.storage.preferences.AdmarkPreferences;
 import de.danoeh.antennapod.storage.preferences.UserPreferences;
 import de.danoeh.antennapod.ui.preferences.screen.synchronization.AuthenticationDialog;
 import de.danoeh.antennapod.ui.screen.feed.RenameFeedDialog;
@@ -71,6 +73,8 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
     private static final String PREF_TAGS = "tags";
     private static final String PREF_EDIT_FEED_URL = "editFeedUrl";
     private static final String PREF_RECONNECT_LOCAL_FOLDER = "reconnectLocalFolder";
+    private static final String PREF_ADMARK_CATEGORY = "admarkCategory";
+    private static final String PREF_ADMARK_INCLUDE = "admarkInclude";
 
     private Feed feed;
     private Disposable disposable;
@@ -149,6 +153,9 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
                         findPreference(PREF_EPISODE_FILTER).setVisible(false);
                         findPreference(PREF_EDIT_FEED_URL).setVisible(false);
                     }
+                    // FORK: admark
+                    findPreference(PREF_ADMARK_CATEGORY).setVisible(
+                            !feed.isLocalFeed() && AdmarkPreferences.isEnabled());
 
                     findPreference(PREF_SCREEN).setVisible(true);
                 }, error -> Log.d(TAG, Log.getStackTraceString(error)), () -> { });
@@ -282,6 +289,15 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
         findPreference(PREF_RENAME).setOnPreferenceClickListener(preference -> {
             new RenameFeedDialog(getActivity(), feed).show();
             return true;
+        });
+        // FORK: admark
+        SwitchPreferenceCompat admarkInclude = findPreference(PREF_ADMARK_INCLUDE);
+        admarkInclude.setChecked(AdmarkPreferences.isFeedIncluded(feed.getId()));
+        admarkInclude.setOnPreferenceChangeListener((preference, newValue) -> {
+            boolean checked = Boolean.TRUE.equals(newValue);
+            AdmarkIntegration.setFeedIncluded(feed, checked);
+            admarkInclude.setChecked(checked);
+            return false;
         });
         findPreference(PREF_EDIT_FEED_URL).setOnPreferenceClickListener(preference -> {
             new EditUrlSettingsDialog(getActivity(), feed) {

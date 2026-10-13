@@ -57,6 +57,7 @@ public class EpisodeItemViewHolder extends RecyclerView.ViewHolder {
     public final ImageView secondaryActionIcon;
     private final CircularProgressBar secondaryActionProgress;
     private final TextView separatorIcons;
+    private final TextView admarkBadge;
     private final View leftPadding;
     public final CardView coverHolder;
 
@@ -82,6 +83,7 @@ public class EpisodeItemViewHolder extends RecyclerView.ViewHolder {
         isFavorite = itemView.findViewById(R.id.isFavorite);
         size = itemView.findViewById(R.id.size);
         separatorIcons = itemView.findViewById(R.id.separatorIcons);
+        admarkBadge = itemView.findViewById(R.id.admarkBadge);
         secondaryActionProgress = itemView.findViewById(R.id.secondaryActionProgress);
         secondaryActionButton = itemView.findViewById(R.id.secondaryActionButton);
         secondaryActionIcon = itemView.findViewById(R.id.secondaryActionIcon);
@@ -130,6 +132,9 @@ public class EpisodeItemViewHolder extends RecyclerView.ViewHolder {
                     .withCoverView(cover)
                     .load();
         }
+        // FORK: admark
+        AdmarkEpisodeBadge.bind(admarkBadge, null, item, activity,
+                id -> this.item != null && this.item.getId() == id, this::hideSeparatorIfNecessary);
     }
 
     private void bind(FeedMedia media) {
@@ -213,6 +218,7 @@ public class EpisodeItemViewHolder extends RecyclerView.ViewHolder {
         size.setText("");
         itemView.setActivated(false);
         placeholder.setText("");
+        admarkBadge.setVisibility(View.GONE);
         if (coverHolder.getVisibility() == View.VISIBLE) {
             new CoverLoader()
                     .withResource(R.color.medium_gray)
@@ -265,7 +271,8 @@ public class EpisodeItemViewHolder extends RecyclerView.ViewHolder {
                 || isInQueue.getVisibility() == View.VISIBLE
                 || isVideo.getVisibility() == View.VISIBLE
                 || isFavorite.getVisibility() == View.VISIBLE
-                || isInbox.getVisibility() == View.VISIBLE;
+                || isInbox.getVisibility() == View.VISIBLE
+                || admarkBadge.getVisibility() == View.VISIBLE;
         separatorIcons.setVisibility(hasIcons ? View.VISIBLE : View.GONE);
     }
 }
