@@ -11,11 +11,14 @@ android {
 dependencies {
     implementation project(':model')
     implementation project(':net:common')
+    implementation project(':net:download:service-interface')
+    implementation project(':storage:database')
     implementation project(':storage:preferences')
 
     annotationProcessor libs.androidx.annotation
     implementation libs.okhttp
     implementation libs.commons.lang3
+    implementation libs.androidx.work.runtime
 
     testImplementation libs.junit
     testImplementation libs.robolectric

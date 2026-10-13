@@ -1,7 +1,8 @@
 # `:net:admark`
 
-Isolated HTTP client and playback/enqueue helpers for a self-hosted **admark**
-service. Upstream AntennaPod files should only contain thin `// FORK: admark`
-hooks that call `AdmarkIntegration` / `AdmarkPlaybackController`.
+Isolated HTTP client, proxied-feed subscription routing, and playback helpers for
+self-hosted **admark**. Upstream AntennaPod files should only contain thin
+`// FORK: admark` hooks.
 
-See `docs/ADMARK.md` for touchpoints, rebase notes, and the VERIFIED alto API.
+Contract: alto `services/admark/docs/ANTENNAPOD_INTEGRATION.md` (PR #540) —
+see `docs/ADMARK.md`.

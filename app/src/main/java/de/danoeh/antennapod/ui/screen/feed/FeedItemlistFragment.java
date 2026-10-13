@@ -36,7 +36,6 @@ import de.danoeh.antennapod.model.download.DownloadResult;
 import de.danoeh.antennapod.model.feed.Feed;
 import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedItemFilter;
-import de.danoeh.antennapod.net.admark.AdmarkIntegration;
 import de.danoeh.antennapod.net.download.serviceinterface.FeedUpdateManager;
 import de.danoeh.antennapod.storage.database.DBReader;
 import de.danoeh.antennapod.storage.database.DBWriter;
@@ -551,8 +550,6 @@ public class FeedItemlistFragment extends Fragment implements AdapterView.OnItem
                 return;
             }
             DBWriter.setFeedState(getContext(), feed, Feed.STATE_SUBSCRIBED);
-            // FORK: admark
-            AdmarkIntegration.onFeedSubscribed(feed);
             MainActivityStarter mainActivityStarter = new MainActivityStarter(getContext());
             mainActivityStarter.withOpenFeed(feed.getId());
             getActivity().finish();
@@ -563,8 +560,6 @@ public class FeedItemlistFragment extends Fragment implements AdapterView.OnItem
                 return;
             }
             DBWriter.setFeedState(getContext(), feed, Feed.STATE_SUBSCRIBED);
-            // FORK: admark
-            AdmarkIntegration.onFeedSubscribed(feed);
         });
         viewBinding.header.butShowSettings.setOnClickListener(v -> {
             if (feed == null) {
