@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Locale;
 
 import de.danoeh.antennapod.model.feed.Feed;
+import de.danoeh.antennapod.storage.preferences.AdmarkPreferences;
 
 /** Writes OPML documents. */
 public class OpmlWriter {
@@ -57,7 +58,9 @@ public class OpmlWriter {
             if (feed.getType() != null) {
                 xs.attribute(null, OpmlSymbols.TYPE, feed.getType());
             }
-            xs.attribute(null, OpmlSymbols.XMLURL, feed.getDownloadUrl());
+            // FORK: admark
+            xs.attribute(null, OpmlSymbols.XMLURL,
+                    AdmarkPreferences.getDisplayFeedUrl(feed.getId(), feed.getDownloadUrl()));
             if (feed.getLink() != null) {
                 xs.attribute(null, OpmlSymbols.HTMLURL, feed.getLink());
             }

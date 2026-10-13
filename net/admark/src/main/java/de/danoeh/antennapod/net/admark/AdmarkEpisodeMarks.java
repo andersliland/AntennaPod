@@ -15,15 +15,21 @@ public class AdmarkEpisodeMarks {
     private final Status status;
     private final List<AdmarkSkipRange> ranges;
     private final String jobId;
+    private final String audioSha256;
 
     public AdmarkEpisodeMarks(Status status, List<AdmarkSkipRange> ranges) {
-        this(status, ranges, null);
+        this(status, ranges, null, null);
     }
 
     public AdmarkEpisodeMarks(Status status, List<AdmarkSkipRange> ranges, String jobId) {
+        this(status, ranges, jobId, null);
+    }
+
+    public AdmarkEpisodeMarks(Status status, List<AdmarkSkipRange> ranges, String jobId, String audioSha256) {
         this.status = status == null ? Status.UNKNOWN : status;
         this.ranges = ranges == null ? Collections.emptyList() : ranges;
         this.jobId = jobId;
+        this.audioSha256 = audioSha256;
     }
 
     public Status getStatus() {
@@ -36,6 +42,10 @@ public class AdmarkEpisodeMarks {
 
     public String getJobId() {
         return jobId;
+    }
+
+    public String getAudioSha256() {
+        return audioSha256;
     }
 
     public boolean hasSkippableRanges() {
