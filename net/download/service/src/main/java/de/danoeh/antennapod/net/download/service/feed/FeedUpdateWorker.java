@@ -228,6 +228,8 @@ public class FeedUpdateWorker extends Worker {
             }
             DBWriter.setFeedLastUpdateFailed(request.getFeedfileId(), true);
             DBWriter.addDownloadStatus(downloader.getResult());
+            // FORK: admark
+            AdmarkIntegration.onFeedRefreshFailed(feed);
             return null;
         }
 

@@ -7,6 +7,7 @@ import androidx.annotation.NonNull;
 import android.text.TextUtils;
 import android.util.Log;
 
+import de.danoeh.antennapod.net.admark.AdmarkApiPaths;
 import de.danoeh.antennapod.net.common.NetworkUtils;
 import de.danoeh.antennapod.model.download.DownloadResult;
 import de.danoeh.antennapod.model.download.DownloadRequest;
@@ -125,6 +126,14 @@ public class HttpDownloader extends Downloader {
             String redirect = RedirectChecker.getNewUrlIfPermanentRedirect(response);
             if (redirect != null) {
                 permanentRedirectUrl = redirect;
+            }
+            // FORK: admark
+            if (request.getFeedfileType() == FeedMedia.FEEDFILETYPE_FEEDMEDIA
+                    && request.getArguments() != null) {
+                String audioSha = response.header(AdmarkApiPaths.AUDIO_SHA256_HEADER);
+                if (!TextUtils.isEmpty(audioSha)) {
+                    request.getArguments().putString(AdmarkApiPaths.REQUEST_ARG_AUDIO_SHA256, audioSha);
+                }
             }
 
             connection = new BufferedInputStream(responseBody.byteStream());

@@ -12,6 +12,19 @@ public final class AdmarkResponseParser {
     private AdmarkResponseParser() {
     }
 
+    public static AdmarkSubscriptionResult parseSubscription(String body) throws JSONException {
+        if (body == null || body.trim().isEmpty()) {
+            return new AdmarkSubscriptionResult(null, null, null);
+        }
+        JSONObject root = new JSONObject(body);
+        String podcastId = firstString(root, AdmarkApiPaths.JSON_PODCAST_ID, "podcastId", "id");
+        String proxied = firstString(root, AdmarkApiPaths.JSON_PROXIED_FEED_URL,
+                "proxiedFeedUrl", "proxy_feed_url", "proxyFeedUrl");
+        String original = firstString(root, AdmarkApiPaths.JSON_ORIGINAL_FEED_URL,
+                "originalFeedUrl", "feed_url");
+        return new AdmarkSubscriptionResult(podcastId, proxied, original);
+    }
+
     public static AdmarkEpisodeMarks parse(String body) throws JSONException {
         if (body == null || body.trim().isEmpty()) {
             return AdmarkEpisodeMarks.missing();

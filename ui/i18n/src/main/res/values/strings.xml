@@ -462,6 +462,13 @@
     <string name="pref_admark_auto_skip_sum">Automatically seek past admark ranges during playback</string>
     <string name="pref_admark_auto_enqueue_title">Analyze new episodes</string>
     <string name="pref_admark_auto_enqueue_sum">Enqueue admark analysis when new episodes appear or downloads finish</string>
+    <string name="pref_admark_proxy_status_title">Feed proxy status</string>
+    <string name="pref_admark_proxy_status_idle">Idle</string>
+    <string name="pref_admark_proxy_status_ok">Feeds routed via admark</string>
+    <string name="pref_admark_proxy_status_pending">Routing pending…</string>
+    <string name="pref_admark_proxy_status_error">admark unreachable — retrying in background</string>
+    <string name="pref_admark_route_all_title">Route all via admark</string>
+    <string name="pref_admark_route_all_sum">Register every subscription and switch download URLs to the proxied feed</string>
     <string name="admark_skipped_snackbar">Skipped ad</string>
     <string name="synchronization_sum">Synchronize with other devices</string>
     <string name="automation">Automation</string>

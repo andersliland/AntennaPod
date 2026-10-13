@@ -58,6 +58,8 @@ public class ClientConfigurator {
         AntennapodHttpClient.setProxyConfig(UserPreferences.getProxyConfig());
         SleepTimerPreferences.init(context);
         NotificationUtils.createChannels(context);
+        // FORK: admark
+        AdmarkIntegration.onAppReady();
         initialized = true;
     }
 }

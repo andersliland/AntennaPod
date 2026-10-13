@@ -116,7 +116,7 @@ public class MediaDownloadedHandler implements Runnable {
                         .currentTimestamp()
                         .build());
             // FORK: admark
-            AdmarkIntegration.onMediaDownloaded(item);
+            AdmarkIntegration.onMediaDownloaded(item, request);
         }
     }
 

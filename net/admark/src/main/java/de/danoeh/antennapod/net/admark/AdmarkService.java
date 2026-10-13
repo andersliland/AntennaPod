@@ -1,5 +1,6 @@
 package de.danoeh.antennapod.net.admark;
 
+import android.content.Context;
 import android.text.TextUtils;
 import android.util.Log;
 import android.util.LruCache;
@@ -9,10 +10,15 @@ import androidx.annotation.Nullable;
 
 import de.danoeh.antennapod.model.feed.Feed;
 import de.danoeh.antennapod.model.feed.FeedItem;
+import de.danoeh.antennapod.model.feed.FeedMedia;
+import de.danoeh.antennapod.net.download.serviceinterface.FeedUpdateManager;
+import de.danoeh.antennapod.storage.database.DBReader;
+import de.danoeh.antennapod.storage.database.DBWriter;
 import de.danoeh.antennapod.storage.preferences.AdmarkPreferences;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -25,12 +31,18 @@ public final class AdmarkService {
     private final AdmarkClient client = new AdmarkClient();
     private final LruCache<String, AdmarkEpisodeMarks> cache = new LruCache<>(64);
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private final Object proxyLock = new Object();
+    private Context appContext;
 
     private AdmarkService() {
     }
 
     public static AdmarkService getInstance() {
         return INSTANCE;
+    }
+
+    public void init(@NonNull Context context) {
+        this.appContext = context.getApplicationContext();
     }
 
     public void enqueueAnalysisIfNeeded(@Nullable FeedItem item) {
@@ -60,21 +72,151 @@ public final class AdmarkService {
     }
 
     public void registerSubscription(@Nullable Feed feed) {
-        if (feed == null || !AdmarkPreferences.isEnabled()) {
+        if (feed == null || feed.isLocalFeed() || !AdmarkPreferences.isEnabled()) {
             return;
         }
+        final long feedId = feed.getId();
+        final String title = feed.getTitle();
+        final String currentUrl = feed.getDownloadUrl();
+        executor.execute(() -> proxyFeed(feedId, title, currentUrl, false));
+    }
+
+    public void unregisterSubscription(@Nullable Feed feed) {
+        if (feed == null || feed.isLocalFeed() || !AdmarkPreferences.isEnabled()) {
+            return;
+        }
+        final long feedId = feed.getId();
+        final String originalUrl = AdmarkPreferences.getOriginalFeedUrl(feedId);
+        final String feedUrl = !TextUtils.isEmpty(originalUrl) ? originalUrl : feed.getDownloadUrl();
+        final String podcastId = AdmarkPreferences.getPodcastId(feedId);
         executor.execute(() -> {
             try {
-                client.registerSubscription(feed);
+                client.unregisterSubscription(feedUrl, podcastId);
             } catch (Exception e) {
-                Log.d(TAG, "registerSubscription failed: " + e.getMessage());
+                Log.d(TAG, "unregisterSubscription failed: " + e.getMessage());
+            } finally {
+                AdmarkPreferences.clearProxyMapping(feedId);
             }
         });
+    }
+
+    public void scheduleMigrationIfNeeded() {
+        if (!AdmarkPreferences.isEnabled() || AdmarkPreferences.isMigrationDone() || appContext == null) {
+            return;
+        }
+        AdmarkPreferences.setProxyStatus(AdmarkPreferences.STATUS_PENDING, "Migrating subscriptions");
+        AdmarkProxyWorker.enqueueMigrate(appContext);
+    }
+
+    public void routeAllViaAdmark() {
+        if (!AdmarkPreferences.isEnabled() || appContext == null) {
+            return;
+        }
+        AdmarkPreferences.setMigrationDone(false);
+        AdmarkPreferences.setProxyStatus(AdmarkPreferences.STATUS_PENDING, "Routing all feeds via admark");
+        AdmarkProxyWorker.enqueueMigrate(appContext);
+    }
+
+    public boolean migrateAllSubscriptions(@NonNull Context context) {
+        if (!AdmarkPreferences.isEnabled()) {
+            return true;
+        }
+        List<Feed> feeds = DBReader.getFeedList();
+        boolean allOk = true;
+        int routed = 0;
+        for (Feed feed : feeds) {
+            if (feed == null || feed.isLocalFeed() || feed.getState() != Feed.STATE_SUBSCRIBED) {
+                continue;
+            }
+            boolean ok = proxyFeed(feed.getId(), feed.getTitle(), feed.getDownloadUrl(), true);
+            if (ok) {
+                routed++;
+            } else {
+                allOk = false;
+            }
+        }
+        if (allOk) {
+            AdmarkPreferences.setMigrationDone(true);
+            AdmarkPreferences.setProxyStatus(AdmarkPreferences.STATUS_OK,
+                    routed == 0 ? "No feeds to route" : "Routed " + routed + " feed(s)");
+        } else {
+            AdmarkPreferences.setProxyStatus(AdmarkPreferences.STATUS_ERROR,
+                    "Some feeds could not be routed; retrying");
+            AdmarkProxyWorker.enqueueRetry(context);
+        }
+        return allOk;
+    }
+
+    public boolean retryPendingProxies(@NonNull Context context) {
+        if (!AdmarkPreferences.isEnabled()) {
+            AdmarkPreferences.setProxyStatus(AdmarkPreferences.STATUS_IDLE, null);
+            return true;
+        }
+        Set<Long> pending = AdmarkPreferences.getPendingFeedIds();
+        if (pending.isEmpty()) {
+            if (!AdmarkPreferences.isMigrationDone()) {
+                return migrateAllSubscriptions(context);
+            }
+            AdmarkPreferences.setProxyStatus(AdmarkPreferences.STATUS_OK, "All feeds routed");
+            return true;
+        }
+        boolean allOk = true;
+        for (Long feedId : pending) {
+            Feed feed = DBReader.getFeed(feedId, false, 0, 0);
+            if (feed == null) {
+                AdmarkPreferences.removePendingFeedId(feedId);
+                continue;
+            }
+            boolean ok = proxyFeed(feed.getId(), feed.getTitle(), feed.getDownloadUrl(), true);
+            if (!ok) {
+                allOk = false;
+            }
+        }
+        if (allOk) {
+            AdmarkPreferences.setProxyStatus(AdmarkPreferences.STATUS_OK, "All feeds routed");
+            if (!AdmarkPreferences.isMigrationDone()) {
+                AdmarkPreferences.setMigrationDone(true);
+            }
+        } else {
+            AdmarkPreferences.setProxyStatus(AdmarkPreferences.STATUS_ERROR,
+                    "admark unreachable; will retry");
+        }
+        return allOk;
+    }
+
+    public void onFeedRefreshFailed(@Nullable Feed feed) {
+        if (feed == null || !AdmarkPreferences.isEnabled() || !AdmarkPreferences.isProxied(feed.getId())) {
+            return;
+        }
+        executor.execute(() -> revertToOriginal(feed.getId(), feed.getDownloadUrl(), true));
+    }
+
+    public void onAudioDownloaded(@Nullable FeedItem item, @Nullable String expectedSha256,
+                                  @Nullable String localPath) {
+        if (item == null) {
+            return;
+        }
+        String key = shaKey(item);
+        if (!TextUtils.isEmpty(expectedSha256)) {
+            AdmarkPreferences.putExpectedAudioSha256(key, expectedSha256);
+            if (!TextUtils.isEmpty(localPath)) {
+                String actual = AdmarkSha256.hexOfFile(localPath);
+                if (actual != null && !AdmarkSha256.matches(expectedSha256, actual)) {
+                    Log.w(TAG, "audio sha256 mismatch for " + key);
+                    AdmarkPreferences.clearExpectedAudioSha256(key);
+                }
+            }
+        }
+        enqueueAnalysisIfNeeded(item);
     }
 
     @NonNull
     public AdmarkEpisodeMarks getMarksForPlayback(@NonNull FeedItem item) {
         if (!AdmarkPreferences.isEnabled()) {
+            return AdmarkEpisodeMarks.missing();
+        }
+        if (!shaMatchesIfPresent(item)) {
+            Log.d(TAG, "skip marks withheld: sha256 mismatch");
             return AdmarkEpisodeMarks.missing();
         }
         try {
@@ -100,6 +242,104 @@ public final class AdmarkService {
     public void invalidate(@Nullable FeedItem item) {
         if (item != null) {
             cache.remove(cacheKey(item));
+        }
+    }
+
+    private boolean proxyFeed(long feedId, @Nullable String title, @Nullable String currentUrl,
+                              boolean refreshAfterSwap) {
+        synchronized (proxyLock) {
+            return proxyFeedLocked(feedId, title, currentUrl, refreshAfterSwap);
+        }
+    }
+
+    private boolean proxyFeedLocked(long feedId, @Nullable String title, @Nullable String currentUrl,
+                                    boolean refreshAfterSwap) {
+        if (feedId <= 0 || TextUtils.isEmpty(currentUrl) || currentUrl.startsWith(Feed.PREFIX_LOCAL_FOLDER)) {
+            return true;
+        }
+        String original = AdmarkPreferences.getOriginalFeedUrl(feedId);
+        if (TextUtils.isEmpty(original)) {
+            original = currentUrl;
+        }
+        String existingProxy = AdmarkPreferences.getProxiedFeedUrl(feedId);
+        if (!TextUtils.isEmpty(existingProxy) && existingProxy.equals(currentUrl)) {
+            AdmarkPreferences.removePendingFeedId(feedId);
+            return true;
+        }
+        try {
+            AdmarkSubscriptionResult result = client.registerSubscription(original, title);
+            if (!result.hasProxiedFeedUrl()) {
+                AdmarkPreferences.addPendingFeedId(feedId);
+                AdmarkPreferences.setProxyStatus(AdmarkPreferences.STATUS_ERROR,
+                        "admark returned no proxied feed URL");
+                if (appContext != null) {
+                    AdmarkProxyWorker.enqueueRetry(appContext);
+                }
+                return false;
+            }
+            String proxied = result.getProxiedFeedUrl();
+            if (!TextUtils.isEmpty(result.getOriginalFeedUrl())) {
+                original = result.getOriginalFeedUrl();
+            }
+            AdmarkPreferences.putOriginalFeedUrl(feedId, original);
+            AdmarkPreferences.putProxiedFeedUrl(feedId, proxied);
+            if (!TextUtils.isEmpty(result.getPodcastId())) {
+                AdmarkPreferences.putPodcastId(feedId, result.getPodcastId());
+            }
+            applyProxiedDownloadUrl(feedId, currentUrl, proxied, refreshAfterSwap);
+            AdmarkPreferences.removePendingFeedId(feedId);
+            if (!AdmarkPreferences.hasPendingProxies()) {
+                AdmarkPreferences.setProxyStatus(AdmarkPreferences.STATUS_OK, "Feeds routed via admark");
+            }
+            return true;
+        } catch (Exception e) {
+            Log.w(TAG, "proxyFeed failed: " + e.getMessage());
+            AdmarkPreferences.addPendingFeedId(feedId);
+            AdmarkPreferences.setProxyStatus(AdmarkPreferences.STATUS_ERROR,
+                    "admark unreachable; will retry");
+            if (appContext != null) {
+                AdmarkProxyWorker.enqueueRetry(appContext);
+            }
+            if (AdmarkPreferences.isProxied(feedId) && !original.equals(currentUrl)) {
+                revertToOriginal(feedId, currentUrl, false);
+            }
+            return false;
+        }
+    }
+
+    private void applyProxiedDownloadUrl(long feedId, @Nullable String currentUrl,
+                                         @NonNull String proxied, boolean refreshAfterSwap) throws Exception {
+        if (TextUtils.isEmpty(currentUrl) || proxied.equals(currentUrl)) {
+            return;
+        }
+        DBWriter.updateFeedDownloadURL(currentUrl, proxied).get();
+        if (refreshAfterSwap && appContext != null && FeedUpdateManager.getInstance() != null) {
+            Feed refreshed = DBReader.getFeed(feedId, false, 0, 0);
+            if (refreshed != null) {
+                refreshed.setDownloadUrl(proxied);
+                FeedUpdateManager.getInstance().runOnce(appContext, refreshed);
+            }
+        }
+    }
+
+    private void revertToOriginal(long feedId, @Nullable String currentUrl, boolean scheduleRetry) {
+        String original = AdmarkPreferences.getOriginalFeedUrl(feedId);
+        if (TextUtils.isEmpty(original)) {
+            return;
+        }
+        try {
+            if (!TextUtils.isEmpty(currentUrl) && !original.equals(currentUrl)) {
+                DBWriter.updateFeedDownloadURL(currentUrl, original).get();
+            }
+            AdmarkPreferences.clearProxiedFeedUrl(feedId);
+            AdmarkPreferences.addPendingFeedId(feedId);
+            AdmarkPreferences.setProxyStatus(AdmarkPreferences.STATUS_PENDING,
+                    "Reverted to original URL; retrying admark");
+            if (scheduleRetry && appContext != null) {
+                AdmarkProxyWorker.enqueueRetry(appContext);
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "revertToOriginal failed: " + e.getMessage());
         }
     }
 
@@ -149,12 +389,35 @@ public final class AdmarkService {
         return marks;
     }
 
+    private boolean shaMatchesIfPresent(@NonNull FeedItem item) {
+        String expected = AdmarkPreferences.getExpectedAudioSha256(shaKey(item));
+        if (TextUtils.isEmpty(expected)) {
+            return true;
+        }
+        FeedMedia media = item.getMedia();
+        if (media == null || TextUtils.isEmpty(media.getLocalFileUrl()) || !media.isDownloaded()) {
+            return true;
+        }
+        String actual = AdmarkSha256.hexOfFile(media.getLocalFileUrl());
+        if (actual == null) {
+            return true;
+        }
+        return AdmarkSha256.matches(expected, actual);
+    }
+
+    private static String shaKey(@NonNull FeedItem item) {
+        if (!TextUtils.isEmpty(item.getItemIdentifier())) {
+            return item.getItemIdentifier();
+        }
+        return "item-" + item.getId();
+    }
+
     private static String cacheKey(FeedItem item) {
+        if (!TextUtils.isEmpty(item.getItemIdentifier())) {
+            return item.getItemIdentifier();
+        }
         if (item.getMedia() != null && item.getMedia().getDownloadUrl() != null) {
             return item.getMedia().getDownloadUrl();
-        }
-        if (item.getItemIdentifier() != null) {
-            return item.getItemIdentifier();
         }
         return "item-" + item.getId();
     }

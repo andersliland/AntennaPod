@@ -40,6 +40,8 @@ import de.danoeh.antennapod.event.FeedListUpdateEvent;
 import de.danoeh.antennapod.event.playback.PlaybackHistoryEvent;
 import de.danoeh.antennapod.event.QueueEvent;
 import de.danoeh.antennapod.event.FeedEvent;
+import de.danoeh.antennapod.storage.preferences.AdmarkFeedCallbacks;
+import de.danoeh.antennapod.storage.preferences.AdmarkPreferences;
 import de.danoeh.antennapod.storage.preferences.PlaybackPreferences;
 import de.danoeh.antennapod.storage.preferences.UserPreferences;
 import de.danoeh.antennapod.model.download.DownloadResult;
@@ -183,6 +185,14 @@ public class DBWriter {
 
             deleteFeedItemsSynchronous(context, feed.getItems());
 
+            // FORK: admark
+            String syncRemoveUrl = feed.getDownloadUrl();
+            String admarkOriginal = AdmarkPreferences.getOriginalFeedUrl(feed.getId());
+            if (admarkOriginal != null && !admarkOriginal.isEmpty()) {
+                syncRemoveUrl = admarkOriginal;
+            }
+            AdmarkFeedCallbacks.notifyUnsubscribed(feed);
+
             // delete feed
             PodDBAdapter adapter = PodDBAdapter.getInstance();
             adapter.open();
@@ -190,7 +200,7 @@ public class DBWriter {
             adapter.close();
 
             if (!feed.isLocalFeed() && feed.getState() != Feed.STATE_NOT_SUBSCRIBED) {
-                SynchronizationQueue.getInstance().enqueueFeedRemoved(feed.getDownloadUrl());
+                SynchronizationQueue.getInstance().enqueueFeedRemoved(syncRemoveUrl);
             }
             EventBus.getDefault().post(new FeedListUpdateEvent(feed));
         });
@@ -703,6 +713,8 @@ public class DBWriter {
             for (Feed feed : feeds) {
                 if (!feed.isLocalFeed() && feed.getState() != Feed.STATE_NOT_SUBSCRIBED) {
                     SynchronizationQueue.getInstance().enqueueFeedAdded(feed.getDownloadUrl());
+                    // FORK: admark
+                    AdmarkFeedCallbacks.notifySubscribed(feed);
                 }
             }
 
@@ -871,6 +883,8 @@ public class DBWriter {
                 DBWriter.setFeedPreferences(feed.getPreferences());
                 FeedUpdateManager.getInstance().runOnceOrAsk(context, feed);
                 SynchronizationQueue.getInstance().enqueueFeedAdded(feed.getDownloadUrl());
+                // FORK: admark
+                AdmarkFeedCallbacks.notifySubscribed(feed);
                 DBReader.getFeedItemList(feed, FeedItemFilter.unfiltered(),
                         SortOrder.DATE_NEW_OLD, 0, Integer.MAX_VALUE);
                 for (FeedItem item : feed.getItems()) {
