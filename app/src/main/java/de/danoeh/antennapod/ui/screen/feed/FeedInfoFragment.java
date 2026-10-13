@@ -71,7 +71,8 @@ public class FeedInfoFragment extends Fragment implements MaterialToolbar.OnMenu
         @Override
         public void onClick(View v) {
             if (feed != null && feed.getDownloadUrl() != null) {
-                ClipboardUtils.copyText(v, R.string.url_label, feed.getDownloadUrl());
+                // FORK: admark
+                ClipboardUtils.copyText(v, R.string.url_label, AdmarkIntegration.getDisplayFeedUrl(feed));
             }
         }
     };
@@ -184,7 +185,8 @@ public class FeedInfoFragment extends Fragment implements MaterialToolbar.OnMenu
             viewBinding.header.txtvAuthor.setText(feed.getAuthor());
         }
 
-        viewBinding.urlLabel.setText(feed.getDownloadUrl());
+        // FORK: admark
+        viewBinding.urlLabel.setText(AdmarkIntegration.getDisplayFeedUrl(feed));
         viewBinding.urlLabel.setCompoundDrawablesRelativeWithIntrinsicBounds(0, 0, R.drawable.ic_paperclip, 0);
 
         if (feed.getPaymentLinks() == null || feed.getPaymentLinks().size() == 0) {
@@ -227,8 +229,6 @@ public class FeedInfoFragment extends Fragment implements MaterialToolbar.OnMenu
             viewBinding.header.butSubscribe.setVisibility(View.VISIBLE);
             viewBinding.header.butSubscribe.setOnClickListener(view -> {
                 DBWriter.setFeedState(getContext(), feed, Feed.STATE_SUBSCRIBED);
-                // FORK: admark
-                AdmarkIntegration.onFeedSubscribed(feed);
                 MainActivityStarter mainActivityStarter = new MainActivityStarter(getContext());
                 mainActivityStarter.withOpenFeed(feed.getId());
                 mainActivityStarter.withClearBackStack();

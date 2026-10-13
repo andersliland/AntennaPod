@@ -41,4 +41,18 @@
             android:summary="@string/pref_admark_auto_enqueue_sum"
             android:defaultValue="true"
             android:dependency="prefAdmarkEnabled"/>
+
+    <Preference
+            android:key="prefAdmarkProxyStatus"
+            android:title="@string/pref_admark_proxy_status_title"
+            android:summary="@string/pref_admark_proxy_status_idle"
+            android:dependency="prefAdmarkEnabled"
+            search:ignore="true"/>
+
+    <Preference
+            android:key="prefAdmarkRouteAll"
+            android:title="@string/pref_admark_route_all_title"
+            android:summary="@string/pref_admark_route_all_sum"
+            android:dependency="prefAdmarkEnabled"
+            search:ignore="true"/>
 </PreferenceScreen>

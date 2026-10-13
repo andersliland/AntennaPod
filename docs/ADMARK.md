@@ -13,109 +13,89 @@ Almost all admark logic lives outside upstream-owned code paths so rebasing onto
 
 | Area | Location |
 | --- | --- |
-| HTTP client, parse, cache, enqueue | `:net:admark` (`AdmarkClient`, `AdmarkService`, …) |
+| HTTP client, parse, cache, enqueue, proxy | `:net:admark` (`AdmarkClient`, `AdmarkService`, `AdmarkProxyWorker`, …) |
 | Public façade | `AdmarkIntegration` + `AdmarkPlaybackController` |
-| Preferences storage | `storage/preferences` → `AdmarkPreferences` |
+| Preferences storage | `storage/preferences` → `AdmarkPreferences` + `AdmarkFeedCallbacks` |
 | Settings UI | `AdmarkPreferencesFragment` + `preferences_admark.xml` |
 | Strings | `ui/i18n` keys prefixed `pref_admark_` / `admark_` |
 
 ### Core touchpoints (search `FORK: admark`)
 
-Keep these diffs tiny — call the façade only; never put HTTP/business logic here.
-
 | File | Hook |
 | --- | --- |
-| `ClientConfigurator` | `AdmarkIntegration.init(context)` |
-| `Media3PlaybackService` | attach/detach controller; `onPlayableChanged` / `onPositionMs` |
-| `FeedUpdateWorker` | `AdmarkIntegration.onNewFeedItems(...)` after `updateFeed` |
-| `MediaDownloadedHandler` | `AdmarkIntegration.onMediaDownloaded(item)` |
-| `FeedItemlistFragment` / `FeedInfoFragment` | `AdmarkIntegration.onFeedSubscribed(feed)` on subscribe |
-| `PreferenceActivity` / `MainPreferencesFragment` | register/open admark screen |
-| `ui/preferences/.../preferences.xml` | one Settings entry |
-| `settings.gradle` + module `build.gradle` deps | `:net:admark` |
+| `ClientConfigurator` | `AdmarkIntegration.init` + `onAppReady` |
+| `DBWriter` | subscribe / unsubscribe via `AdmarkFeedCallbacks` |
+| `Media3PlaybackService` | attach/detach controller; position hooks |
+| `FeedUpdateWorker` | `onNewFeedItems`; `onFeedRefreshFailed` → revert + retry |
+| `HttpDownloader` | capture `X-Admark-Audio-SHA256` into download request args |
+| `MediaDownloadedHandler` | `onMediaDownloaded(item, request)` |
+| `FeedInfoFragment` | show/copy original feed URL via `getDisplayFeedUrl` |
+| `OpmlWriter` | export original URL when proxied |
+| Preferences entry points | Settings → admark |
 
-Packaging-only markers use `FORK: packaging` (`applicationId`, package-hash allowlist).
+## HTTP contract (alto PR #540 / `docs/ANTENNAPOD_INTEGRATION.md`)
 
-### Re-apply after upstream sync
-
-```bash
-git fetch upstream develop
-git rebase upstream/develop
-# If a touchpoint file conflicts: keep upstream body, re-insert the // FORK: admark
-# one-liner(s) calling AdmarkIntegration / AdmarkPlaybackController.
-rg 'FORK: admark' -n
-./gradlew :app:assembleDebug :net:admark:test
-```
-
-Do **not** re-merge admark business logic into player/download classes.
-
-## Upstream investigation (AntennaPod)
-
-| Feature | Location | Notes |
-| --- | --- | --- |
-| Skip intro/outro | `SkipUtils`, feed prefs | Fixed seconds per podcast |
-| Skip silence | ExoPlayer | Not range-based |
-| Chapters | Podlove / Podcast Index / media tags | No auto-skip of ad chapters |
-| FF/RW intervals | `UserPreferences` | Manual buttons |
-
-admark ranges are handled like skip-ending: position observer → façade seek.
-
-## HTTP contract (VERIFIED against alto)
-
-Aligned with `andersliland/alto` `services/admark/ANTENNAPOD_INTEGRATION.md`.
-Paths/headers/JSON below match that contract. The live service at the default
-base URL may still be undeployed; client code is ready when it comes up.
-
-Default base URL: `https://admark.liland.xyz` (overridable in Settings → admark).
+Default base URL: `https://admark.liland.xyz`.
 
 ### Auth
 
-Optional `X-Alto-Token: <token>` when set in Settings → admark (token string
-stored on device; not sent as `Authorization: Bearer`).
+| Surface | Auth |
+| --- | --- |
+| `/api/*` | `X-Alto-Token` (Settings → admark token) |
+| `/feeds/*`, `/audio/*` | Query `?token=<subscription access_token>` only (embedded in `proxied_feed_url`) |
 
-### Lookup
+### Subscribe
 
-`GET {base}/api/lookup?episode_guid=...&feed_url=...`
+```http
+POST /api/subscriptions
+X-Alto-Token: <token>
+Content-Type: application/json
+
+{ "feed_url": "https://feeds.megaphone.fm/history102" }
+```
+
+Response `201`:
 
 ```json
 {
-  "status": "succeeded",
-  "segments": [
-    { "start": 120.0, "end": 150.0, "label": "ad" }
-  ]
+  "id": "a1b2c3…",
+  "feed_url": "https://feeds.megaphone.fm/history102",
+  "access_token": "…",
+  "proxied_feed_url": "https://admark.liland.xyz/feeds/a1b2c3….xml?token=…",
+  "active": true,
+  "priority": "hot_new"
 }
 ```
 
-Statuses: `succeeded` → READY (skip), `running` → PENDING, plus `missing` /
-`failed`. Segment times are seconds.
+| Method | Path | Notes |
+| --- | --- | --- |
+| `GET` | `/api/subscriptions` | List |
+| `GET` | `/api/subscriptions/{id}` | One |
+| `DELETE` | `/api/subscriptions?feed_url=` or `?podcast_id=` | Unsubscribe |
 
-### Enqueue analysis
+Client: swap download URL to `proxied_feed_url`; keep `feed_url` for UI/OPML/sync.
 
-`POST {base}/api/analyze` with
-`{enclosure_url, episode_guid, feed_url, podcast_title, episode_title}`.
+### Lookup
 
-Response may include `job_id` and `status: running`.
+`GET /api/lookup?episode_guid=…&feed_url=…` → segments **and** `audio_sha256`.
 
-### Job polling
+Apply skips only when `audio_sha256` matches `X-Admark-Audio-SHA256` (or a re-hash of the local file).
 
-`GET {base}/api/jobs/{job_id}` until `succeeded` (or failure). Fallback:
-re-lookup when no job id is present.
+### Audio
 
-### Subscriptions
+Proxied enclosures under `/audio/{id}/{guid}.{ext}?token=…` carry
+`X-Admark-Audio-SHA256` and `X-Admark-Canonical: ready|pending`.
 
-`POST {base}/api/subscriptions` with `{feed_url, podcast_title}` when the user
-subscribes to a podcast.
+## Proxy behaviour
 
-## Known gaps
-
-1. Live service may still be undeployed at the default host.
-2. No webhook receiver (client-initiated enqueue on refresh/download).
-3. In-memory marks cache only.
-4. Optional future: CI copy of Release APK into private F-Droid (see `FDROID.md`).
+1. Subscribe (any path) → background POST → silent URL swap.
+2. One-time migration + Settings → **Route all via admark**.
+3. Failure → keep/revert original URL, WorkManager exponential backoff, status in Settings.
+4. Unsubscribe → `DELETE ?feed_url=` / `?podcast_id=`.
 
 ## How to test
 
-1. Settings → admark → enable, confirm base URL (+ token), auto-skip / auto-enqueue.
-2. Subscribe / refresh feed / download → logcat `AdmarkService` / `AdmarkPlayback`.
-3. Play episode with `succeeded` + `segments` → seek past ads + snackbar.
-4. `./gradlew --console=plain :net:admark:test`
+```bash
+./gradlew --console=plain :net:admark:test
+./gradlew :app:assembleDebug
+```
