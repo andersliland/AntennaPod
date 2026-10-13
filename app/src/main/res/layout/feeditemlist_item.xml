@@ -130,6 +130,22 @@
                     app:srcCompat="@drawable/ic_playlist_play" />
 
                 <TextView
+                    android:id="@+id/admarkBadge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:layout_marginEnd="4dp"
+                    android:paddingStart="6dp"
+                    android:paddingEnd="6dp"
+                    android:paddingTop="1dp"
+                    android:paddingBottom="1dp"
+                    android:text="@string/admark_badge"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:visibility="gone"
+                    style="@style/AntennaPod.TextView.FeedListItemSecondaryTitle" />
+
+                <TextView
                     android:id="@+id/separatorIcons"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
