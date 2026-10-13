@@ -1,5 +1,9 @@
 name: Fetch alto admark contract
 on:
+  push:
+    branches: [ cursor/admark-proxied-feed-api-e2f5 ]
+    paths:
+      - '.github/workflows/fetch-alto-doc.yml'
   workflow_dispatch:
 jobs:
   fetch:
@@ -14,36 +18,34 @@ jobs:
             echo "ALTO_DISPATCH_TOKEN missing" >&2
             exit 1
           fi
+          # Prove token can see alto
+          curl -sS -H "Authorization: Bearer ${ALTO_DISPATCH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/andersliland/alto" | head -c 400
+          echo
           for ref in cursor/admark-proxied-feed-audio-5a41 develop main master; do
             echo "Trying ref=$ref"
-            code=$(curl -sS -o doc.md -w "%{http_code}" \
-              -H "Authorization: Bearer ${ALTO_DISPATCH_TOKEN}" \
-              -H "Accept: application/vnd.github.raw" \
-              "https://api.github.com/repos/andersliland/alto/contents/services/admark/docs/ANTENNAPOD_INTEGRATION.md?ref=${ref}" || true)
-            echo "HTTP $code"
-            if [ "$code" = "200" ]; then
-              echo "=== DOC BEGIN ==="
-              cat doc.md
-              echo "=== DOC END ==="
-              exit 0
-            fi
-            # also try without docs/ subdir
-            code=$(curl -sS -o doc.md -w "%{http_code}" \
-              -H "Authorization: Bearer ${ALTO_DISPATCH_TOKEN}" \
-              -H "Accept: application/vnd.github.raw" \
-              "https://api.github.com/repos/andersliland/alto/contents/services/admark/ANTENNAPOD_INTEGRATION.md?ref=${ref}" || true)
-            echo "alt path HTTP $code"
-            if [ "$code" = "200" ]; then
-              echo "=== DOC BEGIN ==="
-              cat doc.md
-              echo "=== DOC END ==="
-              exit 0
-            fi
+            for path in \
+              services/admark/docs/ANTENNAPOD_INTEGRATION.md \
+              services/admark/ANTENNAPOD_INTEGRATION.md \
+              docs/ANTENNAPOD_INTEGRATION.md; do
+              code=$(curl -sS -o doc.md -w "%{http_code}" \
+                -H "Authorization: Bearer ${ALTO_DISPATCH_TOKEN}" \
+                -H "Accept: application/vnd.github.raw" \
+                "https://api.github.com/repos/andersliland/alto/contents/${path}?ref=${ref}" || true)
+              echo "HTTP $code for $path@$ref"
+              if [ "$code" = "200" ]; then
+                echo "=== DOC BEGIN ==="
+                cat doc.md
+                echo "=== DOC END ==="
+                exit 0
+              fi
+            done
           done
-          # list tree as fallback
+          echo "Listing admark-related paths on PR branch"
           curl -sS -H "Authorization: Bearer ${ALTO_DISPATCH_TOKEN}" \
             "https://api.github.com/repos/andersliland/alto/git/trees/cursor/admark-proxied-feed-audio-5a41?recursive=1" \
-            | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('message',''));
+            | python3 -c "import sys,json; d=json.load(sys.stdin); print('msg=', d.get('message',''));
 [print(t['path']) for t in d.get('tree',[]) if 'admark' in t['path'].lower() or 'ANTENNA' in t['path'] or 'integrat' in t['path'].lower()]"
           exit 1
       - uses: actions/upload-artifact@v4
