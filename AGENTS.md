@@ -24,11 +24,18 @@ ONLY USE THE EXACT COMMANDS GIVEN IN THIS FILE!
 
 Only then run the application or the tests to verify it.
 Usually you will need to run the application, but if there are existing tests that cover the code you wrote, you can run those instead.
-For installing and running the application, use the command
-`./gradlew --console=plain :app:installPlayDebug && adb shell monkey -p de.danoeh.antennapod.debug 1`.
-If needed, you can grab a textual representation of the screen using `adb shell uiautomator dump /sdcard/ui.xml; adb shell cat /sdcard/ui.xml`.
-You can even control connected devices using `adb shell input tap <x> <y>` and `adb shell input swipe <x1> <y1> <x2> <y2> <duration ms>`.
-If there is a crash, read the logs using `adb logcat -d | grep "de.danoeh.antennapod" | tail -20` and fix the issue.
+
+Phone: Galaxy S21 Ultra, model SM-G998B, abi arm64-v8a, adb serial `R3CRA0J9ANY`. This is the handset navio/frontend flashes with `yarn android:boot --serial R3CRA0J9ANY`. Pin that serial on every adb call. `make flash` exports `ANDROID_SERIAL` and calls `adb -s`. Another phone: `make flash SERIAL=<adb id>`. A second attached device makes an untargeted adb call fail.
+
+To install and launch the play-debug app on that phone, use `make flash`.
+That target checks the serial is attached and authorized, then runs
+`./gradlew --console=plain :app:installPlayDebug`
+and starts `xyz.liland.antennapod.debug/de.danoeh.antennapod.activity.SplashActivity`.
+The debug application id is `xyz.liland.antennapod.debug`. The Makefile pins `JAVA_HOME` to Zulu 21.
+
+`make devices` lists adb devices. `make screenshot` writes `/tmp/antennapod-s21.png`. `make uidump` prints the uiautomator hierarchy. `make logs` prints recent logcat lines for this app. `make uninstall` removes the debug app.
+Control the phone with `adb -s R3CRA0J9ANY shell input tap <x> <y>` and `adb -s R3CRA0J9ANY shell input swipe <x1> <y1> <x2> <y2> <duration ms>`.
+If there is a crash, run `make logs` and fix the issue.
 For running tests, use the command `./gradlew --console=plain` and use the task `:test` of the relevant module.
 As a final style check before opening a PR (or if a user explicitly asks for it), check the code style using:
 `./gradlew checkstyle lint`.

@@ -75,6 +75,7 @@
             android:textSize="20sp" />
 
         <TextView
+            android:id="@+id/welcomeText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/home_welcome_text"
@@ -82,6 +83,17 @@
             android:layout_below="@+id/titleLabel"
             android:textAlignment="center"
             android:textColor="?android:attr/textColorPrimary"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/versionLabel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/welcomeText"
+            android:layout_centerHorizontal="true"
+            android:layout_marginTop="16dp"
+            android:textAlignment="center"
+            android:textColor="?android:attr/textColorSecondary"
             android:textSize="14sp" />
 
     </RelativeLayout>
