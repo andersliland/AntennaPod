@@ -46,16 +46,8 @@ jobs:
             echo "Doc not found; listing admark paths on PR branch"
             curl -sS -H "Authorization: Bearer ${ALTO_DISPATCH_TOKEN}" \
               "https://api.github.com/repos/andersliland/alto/git/trees/cursor/admark-proxied-feed-audio-5a41?recursive=1" \
-              > tree.json
-            python3 - <<'PY'
-import json
-d=json.load(open("tree.json"))
-print("msg=", d.get("message",""))
-for t in d.get("tree", []):
-    p=t["path"]
-    if "admark" in p.lower() or "ANTENNA" in p or "integrat" in p.lower():
-        print(p)
-PY
+              -o tree.json
+            python3 -c 'import json;d=json.load(open("tree.json"));print("msg=",d.get("message",""));[print(t["path"]) for t in d.get("tree",[]) if "admark" in t["path"].lower() or "ANTENNA" in t["path"] or "integrat" in t["path"].lower()]'
             exit 1
           fi
       - uses: actions/upload-artifact@v4
