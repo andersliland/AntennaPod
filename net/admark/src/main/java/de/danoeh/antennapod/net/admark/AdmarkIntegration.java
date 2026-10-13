@@ -97,4 +97,38 @@ public final class AdmarkIntegration {
     public static AdmarkPlaybackController createPlaybackController() {
         return new AdmarkPlaybackController();
     }
+
+    public static void setFeedIncluded(@Nullable Feed feed, boolean included) {
+        AdmarkService.getInstance().setFeedIncluded(feed, included);
+    }
+
+    @Nullable
+    public static AdmarkScanSummary getStoredScan(@Nullable FeedItem item) {
+        if (!tracks(item)) {
+            return null;
+        }
+        return AdmarkScanSummary.parse(
+                AdmarkPreferences.getScanSummary(AdmarkService.getInstance().scanKey(item)));
+    }
+
+    public static boolean shouldQueryScan(@Nullable FeedItem item) {
+        if (!tracks(item)) {
+            return false;
+        }
+        return AdmarkPreferences.getScanSummary(AdmarkService.getInstance().scanKey(item)) == null;
+    }
+
+    public static void refreshStoredScan(@NonNull FeedItem item, @Nullable AdmarkScanSummary.Listener listener) {
+        AdmarkService.getInstance().refreshStoredScan(item, listener);
+    }
+
+    private static boolean tracks(@Nullable FeedItem item) {
+        if (item == null || item.getMedia() == null || !AdmarkPreferences.isEnabled()) {
+            return false;
+        }
+        if (item.getFeed() != null && item.getFeed().isLocalFeed()) {
+            return false;
+        }
+        return AdmarkPreferences.isFeedIncluded(item.getFeedId());
+    }
 }

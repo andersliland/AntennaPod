@@ -17,6 +17,8 @@ Almost all admark logic lives outside upstream-owned code paths so rebasing onto
 | Public façade | `AdmarkIntegration` + `AdmarkPlaybackController` |
 | Preferences storage | `storage/preferences` → `AdmarkPreferences` + `AdmarkFeedCallbacks` |
 | Settings UI | `AdmarkPreferencesFragment` + `preferences_admark.xml` |
+| Per-podcast include | Feed settings switch `admarkInclude` (default on) |
+| Episode scan badge | List row `admarkBadge`, episode screen `txtvAdmark` |
 | Strings | `ui/i18n` keys prefixed `pref_admark_` / `admark_` |
 
 ### Core touchpoints (search `FORK: admark`)
@@ -30,6 +32,8 @@ Almost all admark logic lives outside upstream-owned code paths so rebasing onto
 | `HttpDownloader` | capture `X-Admark-Audio-SHA256` into download request args |
 | `MediaDownloadedHandler` | `onMediaDownloaded(item, request)` |
 | `FeedInfoFragment` | show/copy original feed URL via `getDisplayFeedUrl` |
+| `FeedSettingsPreferenceFragment` | per-podcast include switch |
+| `EpisodeItemViewHolder` / `ItemFragment` | scan badge; detail shows segment count and ad time |
 | `OpmlWriter` | export original URL when proxied |
 | Preferences entry points | Settings → admark |
 
