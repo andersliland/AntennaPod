@@ -215,12 +215,13 @@ public final class AdmarkService {
         if (!AdmarkPreferences.isEnabled()) {
             return AdmarkEpisodeMarks.missing();
         }
-        if (!shaMatchesIfPresent(item)) {
-            Log.d(TAG, "skip marks withheld: sha256 mismatch");
-            return AdmarkEpisodeMarks.missing();
-        }
         try {
-            return ensureMarksInternal(item, true, true);
+            AdmarkEpisodeMarks marks = ensureMarksInternal(item, true, true);
+            if (marks.hasSkippableRanges() && !audioShaMatches(item, marks)) {
+                Log.d(TAG, "skip marks withheld: audio_sha256 mismatch");
+                return AdmarkEpisodeMarks.missing();
+            }
+            return marks;
         } catch (Exception e) {
             Log.d(TAG, "getMarksForPlayback failed: " + e.getMessage());
             return AdmarkEpisodeMarks.failed();
@@ -389,20 +390,26 @@ public final class AdmarkService {
         return marks;
     }
 
-    private boolean shaMatchesIfPresent(@NonNull FeedItem item) {
-        String expected = AdmarkPreferences.getExpectedAudioSha256(shaKey(item));
+    private boolean audioShaMatches(@NonNull FeedItem item, @NonNull AdmarkEpisodeMarks marks) {
+        String expected = marks.getAudioSha256();
+        if (TextUtils.isEmpty(expected)) {
+            expected = AdmarkPreferences.getExpectedAudioSha256(shaKey(item));
+        }
         if (TextUtils.isEmpty(expected)) {
             return true;
         }
         FeedMedia media = item.getMedia();
-        if (media == null || TextUtils.isEmpty(media.getLocalFileUrl()) || !media.isDownloaded()) {
-            return true;
+        if (media != null && media.isDownloaded() && !TextUtils.isEmpty(media.getLocalFileUrl())) {
+            String actual = AdmarkSha256.hexOfFile(media.getLocalFileUrl());
+            if (actual != null) {
+                return AdmarkSha256.matches(expected, actual);
+            }
         }
-        String actual = AdmarkSha256.hexOfFile(media.getLocalFileUrl());
-        if (actual == null) {
-            return true;
+        String fromHeader = AdmarkPreferences.getExpectedAudioSha256(shaKey(item));
+        if (!TextUtils.isEmpty(fromHeader)) {
+            return AdmarkSha256.matches(expected, fromHeader);
         }
-        return AdmarkSha256.matches(expected, actual);
+        return true;
     }
 
     private static String shaKey(@NonNull FeedItem item) {

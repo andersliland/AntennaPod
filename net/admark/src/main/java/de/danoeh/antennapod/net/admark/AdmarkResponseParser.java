@@ -14,15 +14,14 @@ public final class AdmarkResponseParser {
 
     public static AdmarkSubscriptionResult parseSubscription(String body) throws JSONException {
         if (body == null || body.trim().isEmpty()) {
-            return new AdmarkSubscriptionResult(null, null, null);
+            return new AdmarkSubscriptionResult(null, null, null, null);
         }
         JSONObject root = new JSONObject(body);
-        String podcastId = firstString(root, AdmarkApiPaths.JSON_PODCAST_ID, "podcastId", "id");
-        String proxied = firstString(root, AdmarkApiPaths.JSON_PROXIED_FEED_URL,
-                "proxiedFeedUrl", "proxy_feed_url", "proxyFeedUrl");
-        String original = firstString(root, AdmarkApiPaths.JSON_ORIGINAL_FEED_URL,
-                "originalFeedUrl", "feed_url");
-        return new AdmarkSubscriptionResult(podcastId, proxied, original);
+        String id = firstString(root, AdmarkApiPaths.JSON_ID, "podcast_id", "podcastId");
+        String proxied = firstString(root, AdmarkApiPaths.JSON_PROXIED_FEED_URL, "proxiedFeedUrl");
+        String feedUrl = firstString(root, AdmarkApiPaths.JSON_FEED_URL, "original_feed_url", "originalFeedUrl");
+        String accessToken = firstString(root, AdmarkApiPaths.JSON_ACCESS_TOKEN, "accessToken");
+        return new AdmarkSubscriptionResult(id, proxied, feedUrl, accessToken);
     }
 
     public static AdmarkEpisodeMarks parse(String body) throws JSONException {
@@ -30,7 +29,7 @@ public final class AdmarkResponseParser {
             return AdmarkEpisodeMarks.missing();
         }
         JSONObject root = new JSONObject(body);
-        String jobId = firstString(root, "job_id", "jobId", "id");
+        String jobId = firstString(root, "job_id", "jobId");
         AdmarkEpisodeMarks.Status status = parseStatus(root.optString("status", ""));
         JSONArray segmentsArray = firstArray(root, "segments");
         List<AdmarkSkipRange> ranges = new ArrayList<>();
@@ -56,7 +55,8 @@ public final class AdmarkResponseParser {
                 ranges.add(single);
             }
         }
-        return new AdmarkEpisodeMarks(status, ranges, jobId);
+        String audioSha256 = firstString(root, AdmarkApiPaths.JSON_AUDIO_SHA256, "audioSha256");
+        return new AdmarkEpisodeMarks(status, ranges, jobId, audioSha256);
     }
 
     private static AdmarkSkipRange parseRange(JSONObject item) {

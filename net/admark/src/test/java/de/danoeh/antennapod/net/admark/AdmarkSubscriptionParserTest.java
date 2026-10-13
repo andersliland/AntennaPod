@@ -12,23 +12,24 @@ import static org.junit.Assert.assertTrue;
 public class AdmarkSubscriptionParserTest {
     @Test
     public void parseSubscriptionContract() throws Exception {
-        String json = "{\"podcast_id\":\"pod-1\","
-                + "\"proxied_feed_url\":\"https://admark.example/feeds/pod-1.xml\","
-                + "\"original_feed_url\":\"https://cdn.example/feed.xml\"}";
+        String json = "{"
+                + "\"id\":\"a1b2c3d4\","
+                + "\"feed_url\":\"https://feeds.megaphone.fm/history102\","
+                + "\"podcast_title\":null,"
+                + "\"active\":true,"
+                + "\"priority\":\"hot_new\","
+                + "\"access_token\":\"tok-xyz\","
+                + "\"proxied_feed_url\":\"https://admark.liland.xyz/feeds/a1b2c3d4.xml?token=tok-xyz\","
+                + "\"last_checked\":null,"
+                + "\"last_episode_guid\":null,"
+                + "\"created_at\":\"2026-10-13T00:00:00Z\""
+                + "}";
         AdmarkSubscriptionResult result = AdmarkResponseParser.parseSubscription(json);
-        assertEquals("pod-1", result.getPodcastId());
-        assertEquals("https://admark.example/feeds/pod-1.xml", result.getProxiedFeedUrl());
-        assertEquals("https://cdn.example/feed.xml", result.getOriginalFeedUrl());
+        assertEquals("a1b2c3d4", result.getId());
+        assertEquals("https://admark.liland.xyz/feeds/a1b2c3d4.xml?token=tok-xyz", result.getProxiedFeedUrl());
+        assertEquals("https://feeds.megaphone.fm/history102", result.getFeedUrl());
+        assertEquals("tok-xyz", result.getAccessToken());
         assertTrue(result.hasProxiedFeedUrl());
-    }
-
-    @Test
-    public void parseSubscriptionCamelCaseAliases() throws Exception {
-        String json = "{\"podcastId\":\"abc\",\"proxiedFeedUrl\":\"https://proxy/x\",\"originalFeedUrl\":\"https://o/x\"}";
-        AdmarkSubscriptionResult result = AdmarkResponseParser.parseSubscription(json);
-        assertEquals("abc", result.getPodcastId());
-        assertEquals("https://proxy/x", result.getProxiedFeedUrl());
-        assertEquals("https://o/x", result.getOriginalFeedUrl());
     }
 
     @Test

@@ -137,16 +137,14 @@ public class AdmarkClient {
         Request.Builder builder = new Request.Builder().url(url).post(requestBody);
         addAuth(builder);
         try (Response response = AntennapodHttpClient.getHttpClient().newCall(builder.build()).execute()) {
-            if (!response.isSuccessful() && response.code() != 202 && response.code() != 409) {
+            if (!response.isSuccessful()) {
                 throw new IOException("registerSubscription HTTP " + response.code());
             }
             String body = response.body() == null ? "" : response.body().string();
             AdmarkSubscriptionResult result = AdmarkResponseParser.parseSubscription(body);
-            if (!result.hasProxiedFeedUrl() && TextUtils.isEmpty(result.getOriginalFeedUrl())) {
-                return new AdmarkSubscriptionResult(result.getPodcastId(), null, feedUrl);
-            }
-            if (TextUtils.isEmpty(result.getOriginalFeedUrl())) {
-                return new AdmarkSubscriptionResult(result.getPodcastId(), result.getProxiedFeedUrl(), feedUrl);
+            if (TextUtils.isEmpty(result.getFeedUrl())) {
+                return new AdmarkSubscriptionResult(result.getId(), result.getProxiedFeedUrl(),
+                        feedUrl, result.getAccessToken());
             }
             return result;
         }
@@ -158,22 +156,19 @@ public class AdmarkClient {
         if (TextUtils.isEmpty(base)) {
             return;
         }
-        HttpUrl url = null;
-        if (!TextUtils.isEmpty(podcastId)) {
-            url = HttpUrl.parse(base + AdmarkApiPaths.SUBSCRIPTIONS_PATH + "/" + podcastId);
-        }
-        if (url == null && !TextUtils.isEmpty(feedUrl)) {
-            HttpUrl parsed = HttpUrl.parse(base + AdmarkApiPaths.SUBSCRIPTIONS_PATH);
-            if (parsed != null) {
-                url = parsed.newBuilder()
-                        .addQueryParameter(AdmarkApiPaths.QUERY_FEED_URL, feedUrl)
-                        .build();
-            }
-        }
-        if (url == null) {
+        HttpUrl parsed = HttpUrl.parse(base + AdmarkApiPaths.SUBSCRIPTIONS_PATH);
+        if (parsed == null) {
             return;
         }
-        Request.Builder builder = new Request.Builder().url(url).delete();
+        HttpUrl.Builder urlBuilder = parsed.newBuilder();
+        if (!TextUtils.isEmpty(podcastId)) {
+            urlBuilder.addQueryParameter(AdmarkApiPaths.QUERY_PODCAST_ID, podcastId);
+        } else if (!TextUtils.isEmpty(feedUrl)) {
+            urlBuilder.addQueryParameter(AdmarkApiPaths.QUERY_FEED_URL, feedUrl);
+        } else {
+            return;
+        }
+        Request.Builder builder = new Request.Builder().url(urlBuilder.build()).delete();
         addAuth(builder);
         try (Response response = AntennapodHttpClient.getHttpClient().newCall(builder.build()).execute()) {
             if (!response.isSuccessful() && response.code() != 404) {

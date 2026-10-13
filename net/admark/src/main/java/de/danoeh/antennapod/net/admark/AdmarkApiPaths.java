@@ -16,12 +16,15 @@ public final class AdmarkApiPaths {
     public static final String BODY_PODCAST_TITLE = "podcast_title";
     public static final String BODY_EPISODE_TITLE = "episode_title";
 
-    public static final String JSON_PODCAST_ID = "podcast_id";
+    public static final String JSON_ID = "id";
+    public static final String JSON_FEED_URL = "feed_url";
     public static final String JSON_PROXIED_FEED_URL = "proxied_feed_url";
-    public static final String JSON_ORIGINAL_FEED_URL = "original_feed_url";
+    public static final String JSON_ACCESS_TOKEN = "access_token";
+    public static final String JSON_AUDIO_SHA256 = "audio_sha256";
 
     public static final String AUTH_HEADER = "X-Alto-Token";
-    public static final String AUDIO_SHA256_HEADER = "X-Admark-Audio-Sha256";
+    public static final String AUDIO_SHA256_HEADER = "X-Admark-Audio-SHA256";
+    public static final String CANONICAL_HEADER = "X-Admark-Canonical";
     public static final String REQUEST_ARG_AUDIO_SHA256 = "admark_audio_sha256";
 
     private AdmarkApiPaths() {

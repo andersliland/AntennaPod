@@ -11,9 +11,11 @@ import static org.junit.Assert.assertTrue;
 public class AdmarkResponseParserTest {
     @Test
     public void parseSucceededSegmentsSeconds() throws Exception {
-        String json = "{\"status\":\"succeeded\",\"segments\":[{\"start\":1.0,\"end\":5.0,\"label\":\"ad\"}]}";
+        String json = "{\"status\":\"succeeded\",\"audio_sha256\":\"abfe82e8\","
+                + "\"segments\":[{\"start\":1.0,\"end\":5.0,\"label\":\"ad\"}]}";
         AdmarkEpisodeMarks marks = AdmarkResponseParser.parse(json);
         assertEquals(AdmarkEpisodeMarks.Status.READY, marks.getStatus());
+        assertEquals("abfe82e8", marks.getAudioSha256());
         assertEquals(1, marks.getRanges().size());
         assertEquals(1000, marks.getRanges().get(0).getStartMs());
         assertEquals(5000, marks.getRanges().get(0).getEndMs());

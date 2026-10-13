@@ -4,22 +4,35 @@ import androidx.annotation.Nullable;
 
 public final class AdmarkSubscriptionResult {
     @Nullable
-    private final String podcastId;
+    private final String id;
     @Nullable
     private final String proxiedFeedUrl;
     @Nullable
-    private final String originalFeedUrl;
+    private final String feedUrl;
+    @Nullable
+    private final String accessToken;
 
-    public AdmarkSubscriptionResult(@Nullable String podcastId, @Nullable String proxiedFeedUrl,
-                                    @Nullable String originalFeedUrl) {
-        this.podcastId = podcastId;
+    public AdmarkSubscriptionResult(@Nullable String id, @Nullable String proxiedFeedUrl,
+                                    @Nullable String feedUrl) {
+        this(id, proxiedFeedUrl, feedUrl, null);
+    }
+
+    public AdmarkSubscriptionResult(@Nullable String id, @Nullable String proxiedFeedUrl,
+                                    @Nullable String feedUrl, @Nullable String accessToken) {
+        this.id = id;
         this.proxiedFeedUrl = proxiedFeedUrl;
-        this.originalFeedUrl = originalFeedUrl;
+        this.feedUrl = feedUrl;
+        this.accessToken = accessToken;
+    }
+
+    @Nullable
+    public String getId() {
+        return id;
     }
 
     @Nullable
     public String getPodcastId() {
-        return podcastId;
+        return id;
     }
 
     @Nullable
@@ -28,8 +41,18 @@ public final class AdmarkSubscriptionResult {
     }
 
     @Nullable
+    public String getFeedUrl() {
+        return feedUrl;
+    }
+
+    @Nullable
     public String getOriginalFeedUrl() {
-        return originalFeedUrl;
+        return feedUrl;
+    }
+
+    @Nullable
+    public String getAccessToken() {
+        return accessToken;
     }
 
     public boolean hasProxiedFeedUrl() {
