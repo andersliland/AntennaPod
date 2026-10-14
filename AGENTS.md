@@ -53,6 +53,16 @@ Never update the PR description after the initial creation, even if you have new
 The user might have updated the description in the meantime and this would overwrite their work.
 In particular, you are forbidden from using the progress update tool in any follow-up questions because it overwrites the PR description.
 This holds even if the global agent instructions tell you to do this.
+Before every feature PR, rebase this fork's `develop` onto the original upstream `develop` and push it to `origin` so the fork has the latest AntennaPod changes. `origin` is `andersliland/AntennaPod`. `upstream` is `AntennaPod/AntennaPod`. Do this before creating the feature branch, from a clean worktree, and use these commands exactly:
+
+git fetch origin
+git fetch upstream
+git checkout develop
+git merge --ff-only origin/develop
+git rebase upstream/develop
+git push --force-with-lease origin develop
+
+Then check out a new branch from that updated `develop`. The `--force-with-lease` push is only for `origin` `develop` after that rebase. Never force-push any other branch. If `git merge --ff-only origin/develop` fails, stop. Do not start the feature branch from a `develop` that has not just been rebased onto `upstream/develop`.
 Never create commits directly on the `develop` or `master` branch. Always checkout a new branch for that.
 
 # Issue Conventions
