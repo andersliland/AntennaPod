@@ -18,8 +18,10 @@ import de.danoeh.antennapod.storage.database.DBWriter;
 import de.danoeh.antennapod.storage.preferences.AdmarkPreferences;
 
 import okhttp3.HttpUrl;
+import org.json.JSONException;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -383,7 +385,7 @@ public final class AdmarkService {
                     HttpUrl registered = HttpUrl.parse(result.getProxiedFeedUrl());
                     token = registered == null ? null : registered.queryParameter("token");
                 }
-            } catch (Exception e) {
+            } catch (IOException | JSONException e) {
                 Log.d(TAG, "canonical audio unavailable");
                 return null;
             }
@@ -403,7 +405,7 @@ public final class AdmarkService {
                 if (marks.getStatus() == AdmarkEpisodeMarks.Status.READY) {
                     marks = client.fetchMarks(item);
                 }
-            } catch (Exception e) {
+            } catch (IOException | JSONException e) {
                 marks = AdmarkEpisodeMarks.failed();
             }
             String key = cacheKey(item);
