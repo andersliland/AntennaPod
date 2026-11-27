@@ -9,6 +9,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.wifi.WifiManager;
 import android.util.Log;
+import android.text.TextUtils;
 import androidx.annotation.NonNull;
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
@@ -22,6 +23,8 @@ import de.danoeh.antennapod.net.download.service.R;
 import de.danoeh.antennapod.net.download.service.feed.remote.DefaultDownloaderFactory;
 import de.danoeh.antennapod.net.download.service.feed.remote.Downloader;
 import de.danoeh.antennapod.net.download.serviceinterface.DownloadRequestCreator;
+import de.danoeh.antennapod.net.download.serviceinterface.DownloadRequestBuilder;
+import de.danoeh.antennapod.net.admark.AdmarkIntegration;
 import de.danoeh.antennapod.storage.database.DBReader;
 import de.danoeh.antennapod.storage.database.DBWriter;
 import de.danoeh.antennapod.event.MessageEvent;
@@ -61,7 +64,20 @@ public class EpisodeDownloadWorker extends Worker {
             return Result.failure();
         }
 
-        DownloadRequest request = DownloadRequestCreator.create(media).build();
+        if (media.isDownloaded()) {
+            return Result.success();
+        }
+        DownloadRequestBuilder requestBuilder = DownloadRequestCreator.create(media);
+        String canonical = AdmarkIntegration.getCanonicalAudioUrl(media.getItem());
+        if (!TextUtils.isEmpty(canonical) && !canonical.equals(media.getDownloadUrl())) {
+            requestBuilder.setSource(canonical);
+            requestBuilder.withAuthentication(null, null);
+            File partial = new File(requestBuilder.build().getDestination());
+            if (partial.exists() && !partial.delete()) {
+                return Result.failure();
+            }
+        }
+        DownloadRequest request = requestBuilder.build();
         Thread progressUpdaterThread = new Thread() {
             @Override
             public void run() {

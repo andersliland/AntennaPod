@@ -93,6 +93,8 @@
                     android:id="@+id/txtvAdmark"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:gravity="center_vertical"
                     android:visibility="gone"
                     style="@style/AntennaPod.TextView.ListItemSecondaryTitle"
                     tools:text="Admark · 2 ad segments · 00:01:12" />

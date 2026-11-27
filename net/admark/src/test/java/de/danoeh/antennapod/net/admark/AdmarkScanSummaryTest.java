@@ -17,7 +17,8 @@ public class AdmarkScanSummaryTest {
         assertEquals(AdmarkScanSummary.Status.READY, summary.getStatus());
         assertEquals(2, summary.getSegmentCount());
         assertEquals(4000L, summary.getTotalAdMs());
-        assertEquals(0xFF2E7D32, summary.getTrafficLightColor());
+        assertEquals(0xFF9E9E9E, summary.getTrafficLightColor());
+        assertEquals(0xFF2E7D32, summary.withAudioReady(true).getTrafficLightColor());
     }
 
     @Test

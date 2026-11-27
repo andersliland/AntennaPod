@@ -107,22 +107,36 @@ public final class AdmarkIntegration {
         if (!tracks(item)) {
             return null;
         }
-        return AdmarkScanSummary.parse(
-                AdmarkPreferences.getScanSummary(AdmarkService.getInstance().scanKey(item)));
+        return AdmarkService.getInstance().getStoredScan(item);
     }
 
     public static boolean shouldQueryScan(@Nullable FeedItem item) {
         if (!tracks(item)) {
             return false;
         }
-        return AdmarkPreferences.getScanSummary(AdmarkService.getInstance().scanKey(item)) == null;
+        AdmarkScanSummary summary = getStoredScan(item);
+        return summary == null || summary.getStatus() != AdmarkScanSummary.Status.READY || !summary.isAudioReady();
     }
 
     public static void refreshStoredScan(@NonNull FeedItem item, @Nullable AdmarkScanSummary.Listener listener) {
         AdmarkService.getInstance().refreshStoredScan(item, listener);
     }
 
-    private static boolean tracks(@Nullable FeedItem item) {
+    @Nullable
+    public static String getCanonicalAudioUrl(@Nullable FeedItem item) {
+        return AdmarkService.getInstance().getCanonicalAudioUrl(item);
+    }
+
+    public static void analyzeEpisode(@NonNull FeedItem item, @Nullable AdmarkScanSummary.Listener listener) {
+        AdmarkService.getInstance().analyzeEpisode(item, listener);
+    }
+
+    @NonNull
+    public static List<AdmarkSkipRange> getPlaybackRanges(@Nullable FeedItem item) {
+        return AdmarkService.getInstance().getPlaybackRanges(item);
+    }
+
+    public static boolean tracks(@Nullable FeedItem item) {
         if (item == null || item.getMedia() == null || !AdmarkPreferences.isEnabled()) {
             return false;
         }
