@@ -10,6 +10,20 @@ import static org.junit.Assert.assertTrue;
 @RunWith(RobolectricTestRunner.class)
 public class AdmarkResponseParserTest {
     @Test
+    public void measuredStageProgressAndInterruptedWorkflow() throws Exception {
+        AdmarkEpisodeMarks running = AdmarkResponseParser.parse(
+                "{\"status\":\"running\",\"progress\":{\"stage\":\"transcribing\",\"percent\":25}}");
+        assertEquals(25, running.getPercent());
+        assertEquals("transcribing", AdmarkScanSummary.fromMarks(running).getStage());
+        AdmarkEpisodeMarks queued = AdmarkResponseParser.parse(
+                "{\"status\":\"running\",\"progress\":{\"stage\":\"queued\",\"percent\":null}}");
+        assertEquals(-1, queued.getPercent());
+        AdmarkEpisodeMarks interrupted = AdmarkResponseParser.parse(
+                "{\"status\":\"running\",\"progress\":{\"stage\":\"failed\"}}");
+        assertEquals(AdmarkEpisodeMarks.Status.FAILED, interrupted.getStatus());
+    }
+
+    @Test
     public void parseSucceededSegmentsSeconds() throws Exception {
         String json = "{\"status\":\"succeeded\",\"audio_sha256\":\"abfe82e8\","
                 + "\"segments\":[{\"start\":1.0,\"end\":5.0,\"label\":\"ad\"}]}";

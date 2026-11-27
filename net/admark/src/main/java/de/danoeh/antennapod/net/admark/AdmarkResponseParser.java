@@ -56,7 +56,13 @@ public final class AdmarkResponseParser {
             }
         }
         String audioSha256 = firstString(root, AdmarkApiPaths.JSON_AUDIO_SHA256, "audioSha256");
-        return new AdmarkEpisodeMarks(status, ranges, jobId, audioSha256);
+        JSONObject progress = root.optJSONObject("progress");
+        String stage = progress == null ? null : progress.optString("stage", null);
+        int percent = progress == null || progress.isNull("percent") ? -1 : progress.optInt("percent", -1);
+        if ("failed".equals(stage)) {
+            status = AdmarkEpisodeMarks.Status.FAILED;
+        }
+        return new AdmarkEpisodeMarks(status, ranges, jobId, audioSha256).withProgress(stage, percent);
     }
 
     private static AdmarkSkipRange parseRange(JSONObject item) {
