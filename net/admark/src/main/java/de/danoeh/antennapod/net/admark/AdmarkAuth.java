@@ -3,6 +3,7 @@ package de.danoeh.antennapod.net.admark;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.net.Uri;
+import android.text.TextUtils;
 import androidx.annotation.Nullable;
 import androidx.security.crypto.EncryptedSharedPreferences;
 import androidx.security.crypto.MasterKey;
@@ -13,6 +14,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import net.openid.appauth.AuthState;
+import net.openid.appauth.AuthorizationException;
 import net.openid.appauth.AuthorizationService;
 import org.json.JSONException;
 
@@ -22,6 +24,7 @@ public final class AdmarkAuth {
     public static final Uri REDIRECT_URI = Uri.parse("antennapod-admark://auth/callback");
     private static final String STATE_KEY = "auth_state";
     private static final Object TOKEN_REFRESH_LOCK = new Object();
+    private static AuthorizationService authService;
 
     private AdmarkAuth() {
     }
@@ -96,10 +99,11 @@ public final class AdmarkAuth {
         }
         AuthState state = load(context);
         if (state.getRefreshToken() == null) {
+            AdmarkPreferences.setAuthError("Sign in with Alto to use Admark");
             return null;
         }
         String previousRefreshToken = state.getRefreshToken();
-        AuthorizationService service = new AuthorizationService(context);
+        AuthorizationService service = authService(context);
         CountDownLatch latch = new CountDownLatch(1);
         AtomicReference<String> token = new AtomicReference<>();
         AtomicReference<Exception> error = new AtomicReference<>();
@@ -107,9 +111,25 @@ public final class AdmarkAuth {
             token.set(accessToken);
             error.set(exception);
             try {
+                if (accessToken != null) {
+                    AdmarkPreferences.clearAuthError();
+                }
                 saveIfCurrent(context, previousRefreshToken, state);
             } catch (IOException saveError) {
                 error.set(saveError);
+            }
+            if (exception instanceof AuthorizationException
+                    && isRefreshTokenRejected(exception)) {
+                // The refresh token was revoked or expired: sign out so the UI
+                // offers a fresh sign-in instead of failing on every request.
+                try {
+                    signOut(context);
+                    AdmarkPreferences.setAuthError("Alto sign-in expired; sign in again");
+                } catch (IOException ignored) {
+                    // best effort; load() failures surface on the next request
+                }
+            } else if (exception != null) {
+                AdmarkPreferences.setAuthError("Alto token refresh failed");
             }
             latch.countDown();
         });
@@ -120,12 +140,27 @@ public final class AdmarkAuth {
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw new IOException("Admark token refresh interrupted", exception);
-        } finally {
-            service.dispose();
         }
         if (error.get() != null) {
             throw new IOException("Admark token refresh failed", error.get());
         }
         return token.get();
+    }
+
+    private static boolean isRefreshTokenRejected(AuthorizationException exception) {
+        if (!TextUtils.isEmpty(exception.error)) {
+            return "invalid_grant".equals(exception.error)
+                    || "unauthorized_client".equals(exception.error);
+        }
+        return exception.code == AuthorizationException.TokenRequestErrors.INVALID_GRANT.code;
+    }
+
+    private static AuthorizationService authService(Context context) {
+        synchronized (AdmarkAuth.class) {
+            if (authService == null) {
+                authService = new AuthorizationService(context.getApplicationContext());
+            }
+            return authService;
+        }
     }
 }

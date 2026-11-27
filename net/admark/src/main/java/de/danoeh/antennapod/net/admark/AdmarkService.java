@@ -36,14 +36,16 @@ public final class AdmarkService {
     private static final String TAG = "AdmarkService";
     private static final int MAX_POLL_ATTEMPTS = 5;
     private static final long POLL_DELAY_MS = 1500L;
+    private static final long STREAM_VERIFY_TTL_MS = 10 * 60 * 1000L;
     private static final AdmarkService INSTANCE = new AdmarkService();
 
     private final AdmarkClient client = new AdmarkClient();
     private final Map<Long, String> verifiedAudio = new ConcurrentHashMap<>();
+    private final Map<Long, Long> streamVerifiedAt = new ConcurrentHashMap<>();
     private final Map<Long, List<AdmarkSkipRange>> playbackRanges = new ConcurrentHashMap<>();
     private final LruCache<String, AdmarkEpisodeMarks> cache = new LruCache<>(64);
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
-    private final ExecutorService scanExecutor = Executors.newSingleThreadExecutor();
+    private final ExecutorService scanExecutor = Executors.newFixedThreadPool(2);
     private final Map<String, List<AdmarkScanSummary.Listener>> scanListeners = new HashMap<>();
     private final Map<String, Long> scanAttempts = new ConcurrentHashMap<>();
     private final Object proxyLock = new Object();
@@ -204,7 +206,20 @@ public final class AdmarkService {
         if (feed == null || !AdmarkPreferences.isEnabled() || !AdmarkPreferences.isProxied(feed.getId())) {
             return;
         }
+        int failures = AdmarkPreferences.getRefreshFailureCount(feed.getId()) + 1;
+        AdmarkPreferences.setRefreshFailureCount(feed.getId(), failures);
+        if (!AdmarkRevertPolicy.shouldRevert(failures)) {
+            Log.d(TAG, "refresh failed " + failures + "x; keeping proxied feed");
+            return;
+        }
         executor.execute(() -> revertToOriginal(feed.getId(), feed.getDownloadUrl(), true));
+    }
+
+    public void onFeedRefreshed(@Nullable Feed feed) {
+        if (feed == null) {
+            return;
+        }
+        AdmarkPreferences.setRefreshFailureCount(feed.getId(), 0);
     }
 
     public void onAudioDownloaded(@Nullable FeedItem item, @Nullable String expectedSha256,
@@ -216,7 +231,7 @@ public final class AdmarkService {
         if (!TextUtils.isEmpty(expectedSha256)) {
             AdmarkPreferences.putExpectedAudioSha256(key, expectedSha256);
             if (!TextUtils.isEmpty(localPath)) {
-                String actual = AdmarkSha256.hexOfFile(localPath);
+                String actual = memoizedAudioSha(item);
                 if (actual != null && !AdmarkSha256.matches(expectedSha256, actual)) {
                     Log.w(TAG, "audio sha256 mismatch for " + key);
                     AdmarkPreferences.clearExpectedAudioSha256(key);
@@ -434,8 +449,8 @@ public final class AdmarkService {
         playbackRanges.remove(item.getId());
         try {
             AdmarkEpisodeMarks marks = ensureMarksInternal(item, true, true);
-            if (marks.hasSkippableRanges() && !audioShaMatches(item, marks)) {
-                Log.d(TAG, "skip marks withheld: audio_sha256 mismatch");
+            if (marks.hasSkippableRanges() && !audioVerified(item, marks)) {
+                Log.d(TAG, "skip marks withheld: audio not verified");
                 return AdmarkEpisodeMarks.missing();
             }
             summaryFor(item, marks);
@@ -466,6 +481,7 @@ public final class AdmarkService {
             cache.remove(cacheKey(item));
             scanAttempts.remove(cacheKey(item));
             verifiedAudio.remove(item.getId());
+            streamVerifiedAt.remove(item.getId());
             playbackRanges.remove(item.getId());
         }
     }
@@ -651,10 +667,59 @@ public final class AdmarkService {
         }
         FeedMedia media = item.getMedia();
         if (media != null && media.isDownloaded() && !TextUtils.isEmpty(media.getLocalFileUrl())) {
-            String actual = AdmarkSha256.hexOfFile(media.getLocalFileUrl());
+            String actual = memoizedAudioSha(item);
             return AdmarkSha256.matches(expected, actual);
         }
         return false;
+    }
+
+    /**
+     * Verifies streamed audio: a minimal ranged request to the canonical audio
+     * URL must report the expected hash via X-Admark-Audio-SHA256. A 302
+     * "pending" response carries no hash and fails verification, per contract.
+     */
+    private boolean streamingAudioVerified(@NonNull FeedItem item, @NonNull AdmarkEpisodeMarks marks) {
+        Long verifiedAt = streamVerifiedAt.get(item.getId());
+        if (verifiedAt != null && SystemClock.elapsedRealtime() - verifiedAt < STREAM_VERIFY_TTL_MS) {
+            return true;
+        }
+        try {
+            boolean verified = client.verifyStreamSha(getCanonicalAudioUrl(item), marks.getAudioSha256());
+            if (verified) {
+                streamVerifiedAt.put(item.getId(), SystemClock.elapsedRealtime());
+            }
+            return verified;
+        } catch (Exception e) {
+            Log.d(TAG, "stream sha verify failed: " + e.getMessage());
+            return false;
+        }
+    }
+
+    private boolean audioVerified(@NonNull FeedItem item, @NonNull AdmarkEpisodeMarks marks) {
+        FeedMedia media = item.getMedia();
+        if (media != null && media.isDownloaded()) {
+            return audioShaMatches(item, marks);
+        }
+        return streamingAudioVerified(item, marks);
+    }
+
+    /** Hashes the downloaded file at most once per path|size|mtime signature. */
+    @Nullable
+    private static String memoizedAudioSha(@NonNull FeedItem item) {
+        String signature = audioSignature(item);
+        if (signature == null) {
+            return null;
+        }
+        String cached = AdmarkPreferences.getCachedAudioSha(signature);
+        if (!TextUtils.isEmpty(cached)) {
+            return cached;
+        }
+        FeedMedia media = item.getMedia();
+        String hex = AdmarkSha256.hexOfFile(media.getLocalFileUrl());
+        if (!TextUtils.isEmpty(hex)) {
+            AdmarkPreferences.putCachedAudioSha(signature, hex);
+        }
+        return hex;
     }
 
     private static String shaKey(@NonNull FeedItem item) {

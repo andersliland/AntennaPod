@@ -2,6 +2,7 @@ package de.danoeh.antennapod.net.admark;
 
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
@@ -18,6 +19,8 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public final class AdmarkPlaybackController {
     private static final String TAG = "AdmarkPlayback";
+    private static final int MAX_PENDING_POLLS = 3;
+    private static final long PENDING_POLL_DELAY_MS = 15000L;
 
     public interface Host {
         void seekTo(long positionMs);
@@ -32,6 +35,9 @@ public final class AdmarkPlaybackController {
     private final AtomicLong activeItemId = new AtomicLong(-1);
     private Host host;
     private List<AdmarkSkipRange> ranges = Collections.emptyList();
+    private int pendingPolls = 0;
+    private long lastSkipEndMs = 0;
+    private long lastSkipAtMs = 0;
 
     public void attach(Host host) {
         this.host = host;
@@ -40,6 +46,9 @@ public final class AdmarkPlaybackController {
     public void onPlayableChanged(@Nullable FeedMedia media) {
         mainHandler.removeCallbacksAndMessages(null);
         ranges = Collections.emptyList();
+        pendingPolls = 0;
+        lastSkipEndMs = 0;
+        lastSkipAtMs = 0;
         if (media == null || media.getItem() == null || host == null
                 || !AdmarkPreferences.isEnabled() || !AdmarkPreferences.isAutoSkipEnabled()) {
             activeItemId.set(-1);
@@ -65,8 +74,12 @@ public final class AdmarkPlaybackController {
                     onPositionMs(host.getPositionMs());
                 } else {
                     ranges = Collections.emptyList();
-                    if (marks.getStatus() == AdmarkEpisodeMarks.Status.PENDING) {
-                        mainHandler.postDelayed(() -> onPlayableChanged(media), 15000);
+                    if (marks.getStatus() == AdmarkEpisodeMarks.Status.PENDING
+                            && pendingPolls < MAX_PENDING_POLLS) {
+                        // Analysis still running: back off instead of polling forever
+                        pendingPolls++;
+                        mainHandler.postDelayed(() -> onPlayableChanged(media),
+                                PENDING_POLL_DELAY_MS * pendingPolls);
                     }
                 }
             });
@@ -78,19 +91,24 @@ public final class AdmarkPlaybackController {
                 || !AdmarkPreferences.isAutoSkipEnabled()) {
             return;
         }
-        for (AdmarkSkipRange range : ranges) {
-            if (range.contains(positionMs)) {
-                Log.d(TAG, "skip " + range.getStartMs() + "-" + range.getEndMs());
-                host.seekTo(range.getEndMs());
-                host.onSkippedAd();
-                return;
-            }
+        long now = SystemClock.elapsedRealtime();
+        long seekTo = AdmarkSkipGuard.decide(ranges, positionMs, lastSkipEndMs, lastSkipAtMs, now);
+        if (seekTo < 0) {
+            return;
         }
+        Log.d(TAG, "skip " + positionMs + " -> " + seekTo);
+        lastSkipEndMs = seekTo;
+        lastSkipAtMs = now;
+        host.seekTo(seekTo);
+        host.onSkippedAd();
     }
 
     public void detach() {
         activeItemId.set(-1);
         ranges = Collections.emptyList();
+        pendingPolls = 0;
+        lastSkipEndMs = 0;
+        lastSkipAtMs = 0;
         host = null;
         mainHandler.removeCallbacksAndMessages(null);
     }

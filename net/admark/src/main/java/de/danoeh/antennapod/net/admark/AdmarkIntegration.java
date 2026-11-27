@@ -70,6 +70,10 @@ public final class AdmarkIntegration {
         AdmarkService.getInstance().onFeedRefreshFailed(feed);
     }
 
+    public static void onFeedRefreshed(@Nullable Feed feed) {
+        AdmarkService.getInstance().onFeedRefreshed(feed);
+    }
+
     public static void routeAllViaAdmark() {
         AdmarkService.getInstance().routeAllViaAdmark();
     }

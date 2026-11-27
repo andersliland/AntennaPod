@@ -31,6 +31,13 @@
             android:summary="@string/pref_admark_sign_out_sum"
             search:ignore="true"/>
 
+    <Preference
+            android:key="prefAdmarkAuthStatus"
+            android:title="@string/pref_admark_auth_status_title"
+            android:summary="@string/pref_admark_auth_status_ok"
+            android:dependency="prefAdmarkEnabled"
+            search:ignore="true"/>
+
     <SwitchPreferenceCompat
             android:key="prefAdmarkAutoSkip"
             android:title="@string/pref_admark_auto_skip_title"

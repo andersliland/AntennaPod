@@ -13,6 +13,7 @@ import de.danoeh.antennapod.net.common.AntennapodHttpClient;
 import de.danoeh.antennapod.storage.preferences.AdmarkPreferences;
 import okhttp3.HttpUrl;
 import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
@@ -20,10 +21,35 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 
 public class AdmarkClient {
     private static final String TAG = "AdmarkClient";
     private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
+    private static final int CONNECT_TIMEOUT_MS = 10000;
+    private static final int CALL_TIMEOUT_MS = 15000;
+    private static final int IDEMPOTENT_GET_ATTEMPTS = 2;
+
+    /**
+     * Executes with explicit timeouts so a hung AdMark server cannot stall the
+     * playback-skip path, retrying idempotent GETs once on transport errors.
+     */
+    private Response execute(Request.Builder builder, boolean idempotent) throws IOException {
+        OkHttpClient scoped = AntennapodHttpClient.getHttpClient().newBuilder()
+                .connectTimeout(CONNECT_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                .readTimeout(CALL_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                .callTimeout(CALL_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                .build();
+        IOException failure = null;
+        for (int attempt = 0; attempt < (idempotent ? IDEMPOTENT_GET_ATTEMPTS : 1); attempt++) {
+            try {
+                return scoped.newCall(builder.build()).execute();
+            } catch (IOException e) {
+                failure = e;
+            }
+        }
+        throw failure;
+    }
 
     public AdmarkEpisodeMarks fetchMarks(@NonNull FeedItem item) throws IOException, JSONException {
         HttpUrl url = buildLookupUrl(item);
@@ -32,7 +58,7 @@ public class AdmarkClient {
         }
         Request.Builder builder = new Request.Builder().url(url).get();
         addAuth(builder);
-        try (Response response = AntennapodHttpClient.getHttpClient().newCall(builder.build()).execute()) {
+        try (Response response = execute(builder, true)) {
             if (response.code() == 404) {
                 return AdmarkEpisodeMarks.missing();
             }
@@ -75,7 +101,7 @@ public class AdmarkClient {
         RequestBody requestBody = RequestBody.create(payload.toString(), JSON);
         Request.Builder builder = new Request.Builder().url(url).post(requestBody);
         addAuth(builder);
-        try (Response response = AntennapodHttpClient.getHttpClient().newCall(builder.build()).execute()) {
+        try (Response response = execute(builder, false)) {
             if (response.code() == 404) {
                 Log.w(TAG, "enqueueAnalyze path not found");
                 return AdmarkEpisodeMarks.failed();
@@ -92,6 +118,27 @@ public class AdmarkClient {
         }
     }
 
+    /**
+     * Verifies streamed (not downloaded) audio against the expected hash using
+     * the X-Admark-Audio-SHA256 response header of a minimal ranged request.
+     */
+    public boolean verifyStreamSha(@Nullable String audioUrl, @Nullable String expectedSha)
+            throws IOException {
+        if (TextUtils.isEmpty(audioUrl) || TextUtils.isEmpty(expectedSha)) {
+            return false;
+        }
+        HttpUrl url = HttpUrl.parse(audioUrl);
+        if (url == null) {
+            return false;
+        }
+        Request request = new Request.Builder().url(url).header("Range", "bytes=0-0").build();
+        try (Response response = execute(request.newBuilder(), true)) {
+            boolean statusOk = response.code() == 200 || response.code() == 206;
+            String sha = response.header(AdmarkApiPaths.AUDIO_SHA256_HEADER);
+            return statusOk && AdmarkSha256.matches(expectedSha, sha);
+        }
+    }
+
     public AdmarkEpisodeMarks fetchJob(@NonNull String jobId) throws IOException, JSONException {
         String base = AdmarkPreferences.getBaseUrl();
         if (TextUtils.isEmpty(base) || TextUtils.isEmpty(jobId)) {
@@ -103,7 +150,7 @@ public class AdmarkClient {
         }
         Request.Builder builder = new Request.Builder().url(url).get();
         addAuth(builder);
-        try (Response response = AntennapodHttpClient.getHttpClient().newCall(builder.build()).execute()) {
+        try (Response response = execute(builder, true)) {
             if (response.code() == 404) {
                 return AdmarkEpisodeMarks.missing();
             }
@@ -134,7 +181,7 @@ public class AdmarkClient {
         RequestBody requestBody = RequestBody.create(payload.toString(), JSON);
         Request.Builder builder = new Request.Builder().url(url).post(requestBody);
         addAuth(builder);
-        try (Response response = AntennapodHttpClient.getHttpClient().newCall(builder.build()).execute()) {
+        try (Response response = execute(builder, false)) {
             if (!response.isSuccessful()) {
                 throw new IOException("registerSubscription HTTP " + response.code());
             }
@@ -168,7 +215,7 @@ public class AdmarkClient {
         }
         Request.Builder builder = new Request.Builder().url(urlBuilder.build()).delete();
         addAuth(builder);
-        try (Response response = AntennapodHttpClient.getHttpClient().newCall(builder.build()).execute()) {
+        try (Response response = execute(builder, false)) {
             if (!response.isSuccessful() && response.code() != 404) {
                 Log.w(TAG, "unregisterSubscription HTTP " + response.code());
                 throw new IOException("unregisterSubscription HTTP " + response.code());
@@ -212,6 +259,7 @@ public class AdmarkClient {
     private void addAuth(Request.Builder builder) throws IOException {
         String token = AdmarkAuth.freshAccessToken();
         if (TextUtils.isEmpty(token)) {
+            AdmarkPreferences.setAuthError("Sign in with Alto to use Admark");
             throw new IOException("Sign in with Alto to use Admark");
         }
         builder.header("Authorization", "Bearer " + token);

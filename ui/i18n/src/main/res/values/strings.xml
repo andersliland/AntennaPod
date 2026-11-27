@@ -476,6 +476,8 @@
     <string name="pref_admark_proxy_status_error">admark unreachable — retrying in background</string>
     <string name="pref_admark_route_all_title">Route all via admark</string>
     <string name="pref_admark_route_all_sum">Register every subscription and switch download URLs to the proxied feed</string>
+    <string name="pref_admark_auth_status_title">Sign-in status</string>
+    <string name="pref_admark_auth_status_ok">Signed in; access tokens refresh automatically</string>
     <string name="pref_admark_include_title">Include in admark</string>
     <string name="pref_admark_include_sum">Register this podcast and analyze its episodes</string>
     <string name="admark_badge">Admark</string>

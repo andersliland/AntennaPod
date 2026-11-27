@@ -38,6 +38,11 @@ public abstract class AdmarkPreferences {
     private static final String KEY_PROXY_STATUS = "proxyStatus";
     private static final String KEY_PROXY_STATUS_DETAIL = "proxyStatusDetail";
     private static final String KEY_MIGRATION_DONE = "proxyMigrationDone";
+    private static final String KEY_AUTH_ERROR = "authError";
+    private static final String KEY_REFRESH_FAIL_PREFIX = "refreshFail.";
+    private static final String KEY_SHA_CACHE_PREFIX = "shaCache.";
+    private static final String KEY_SHA_CACHE_ORDER = "shaCacheOrder";
+    private static final int SHA_CACHE_MAX_ENTRIES = 24;
 
     private static SharedPreferences prefs;
     private static Context appContext;
@@ -337,5 +342,83 @@ public abstract class AdmarkPreferences {
         }
         String value = prefs.getString(KEY_SCAN_PREFIX + key, null);
         return TextUtils.isEmpty(value) ? null : value;
+    }
+
+    /** Last auth failure message, shown on the Admark settings screen. */
+    public static void setAuthError(@Nullable String message) {
+        if (!ready()) {
+            return;
+        }
+        prefs.edit().putString(KEY_AUTH_ERROR, message == null ? "" : message).apply();
+    }
+
+    @NonNull
+    public static String getAuthError() {
+        if (!ready()) {
+            return "";
+        }
+        String value = prefs.getString(KEY_AUTH_ERROR, "");
+        return value == null ? "" : value;
+    }
+
+    public static void clearAuthError() {
+        if (!ready()) {
+            return;
+        }
+        prefs.edit().remove(KEY_AUTH_ERROR).apply();
+    }
+
+    /** Consecutive feed refresh failures, used to damp revert-to-original flapping. */
+    public static int getRefreshFailureCount(long feedId) {
+        return ready() && feedId > 0 ? prefs.getInt(KEY_REFRESH_FAIL_PREFIX + feedId, 0) : 0;
+    }
+
+    public static void setRefreshFailureCount(long feedId, int count) {
+        if (!ready() || feedId <= 0) {
+            return;
+        }
+        prefs.edit().putInt(KEY_REFRESH_FAIL_PREFIX + feedId, Math.max(0, count)).apply();
+    }
+
+    /** Memoized SHA-256 of a downloaded file, keyed by path|size|mtime signature. */
+    @Nullable
+    public static String getCachedAudioSha(@Nullable String signature) {
+        if (!ready() || TextUtils.isEmpty(signature)) {
+            return null;
+        }
+        String value = prefs.getString(KEY_SHA_CACHE_PREFIX + signature, null);
+        return TextUtils.isEmpty(value) ? null : value;
+    }
+
+    public static void putCachedAudioSha(@Nullable String signature, @Nullable String hex) {
+        if (!ready() || TextUtils.isEmpty(signature) || TextUtils.isEmpty(hex)) {
+            return;
+        }
+        StringBuilder order = new StringBuilder(signature);
+        for (String previous : prefs.getString(KEY_SHA_CACHE_ORDER, "").split(",", -1)) {
+            if (!TextUtils.isEmpty(previous) && !previous.equals(signature)) {
+                order.append(',').append(previous);
+            }
+        }
+        SharedPreferences.Editor editor = prefs.edit();
+        editor.putString(KEY_SHA_CACHE_PREFIX + signature, hex);
+        String[] entries = order.toString().split(",", -1);
+        if (entries.length > SHA_CACHE_MAX_ENTRIES) {
+            StringBuilder kept = new StringBuilder();
+            for (int i = 0; i < entries.length; i++) {
+                if (i < SHA_CACHE_MAX_ENTRIES) {
+                    if (kept.length() > 0) {
+                        kept.append(',');
+                    }
+                    kept.append(entries[i]);
+                } else if (!TextUtils.isEmpty(entries[i])) {
+                    editor.remove(KEY_SHA_CACHE_PREFIX + entries[i]);
+                }
+            }
+            editor.putString(KEY_SHA_CACHE_ORDER, kept.toString());
+        } else {
+            editor.putString(KEY_SHA_CACHE_ORDER, order.toString());
+        }
+        editor.apply();
     }
 }

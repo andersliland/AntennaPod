@@ -243,6 +243,7 @@ public class FeedUpdateWorker extends Worker {
         feedHandlerResult.feed.setLastRefreshAttempt(System.currentTimeMillis());
         Feed savedFeed = FeedDatabaseWriter.updateFeed(getApplicationContext(), feedHandlerResult.feed, false);
         // FORK: admark
+        AdmarkIntegration.onFeedRefreshed(savedFeed);
         if (savedFeed != null) {
             AdmarkIntegration.onNewFeedItems(savedFeed.getItems());
         }

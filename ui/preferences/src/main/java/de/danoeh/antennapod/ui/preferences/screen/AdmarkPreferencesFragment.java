@@ -4,6 +4,7 @@ import android.app.PendingIntent;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.preference.EditTextPreference;
@@ -33,6 +34,7 @@ public class AdmarkPreferencesFragment extends AnimatedPreferenceFragment {
         ((AppCompatActivity) getActivity()).getSupportActionBar().setTitle(R.string.pref_admark_title);
         refreshProxyStatus();
         refreshSignInStatus();
+        refreshAuthStatus();
         SwitchPreferenceCompat enabled = findPreference(AdmarkPreferences.PREF_ENABLED);
         if (enabled != null) {
             enabled.setChecked(AdmarkPreferences.isEnabled());
@@ -86,6 +88,7 @@ public class AdmarkPreferencesFragment extends AnimatedPreferenceFragment {
                     AdmarkAuth.signOut(requireContext());
                     Toast.makeText(requireContext(), R.string.pref_admark_signed_out, Toast.LENGTH_SHORT).show();
                     refreshSignInStatus();
+                    refreshAuthStatus();
                 } catch (java.io.IOException exception) {
                     Toast.makeText(requireContext(), R.string.pref_admark_sign_in_failed, Toast.LENGTH_LONG).show();
                 }
@@ -152,6 +155,19 @@ public class AdmarkPreferencesFragment extends AnimatedPreferenceFragment {
             signIn.setSummary(AdmarkAuth.isSignedIn(getContext())
                     ? R.string.pref_admark_signed_in : R.string.pref_admark_sign_in_sum);
         }
+    }
+
+    private void refreshAuthStatus() {
+        Preference status = findPreference("prefAdmarkAuthStatus");
+        if (status == null || getContext() == null) {
+            return;
+        }
+        String error = AdmarkPreferences.getAuthError();
+        status.setSummary(TextUtils.isEmpty(error)
+                ? getString(AdmarkAuth.isSignedIn(getContext())
+                        ? R.string.pref_admark_auth_status_ok
+                        : R.string.pref_admark_sign_in_sum)
+                : error);
     }
 
     private void refreshProxyStatus() {

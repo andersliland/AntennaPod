@@ -35,6 +35,7 @@ public class AdmarkAuthCallbackActivity extends Activity {
                 try {
                     AdmarkAuth.save(getApplicationContext(), state);
                     AdmarkPreferences.setToken("");
+                    AdmarkPreferences.clearAuthError();
                     if (getIntent().getBooleanExtra(EXTRA_ENABLE_AFTER_SIGN_IN, false)) {
                         AdmarkPreferences.setEnabled(true);
                     }
