@@ -117,6 +117,27 @@ jobs:
         with:
           name: ${{ steps.meta.outputs.apk_name }}
           path: ${{ steps.meta.outputs.apk_name }}
+      - name: Write release notes
+        if: github.event_name != 'workflow_dispatch' || inputs.publish
+        env:
+          TAG: ${{ steps.ver.outputs.tag }}
+        run: |
+          git fetch --tags --quiet --depth=100
+          PREV=$(git tag -l 'v*-fork.*' --sort=-version:refname | grep -vx "$TAG" | sed -n '1p' || true)
+          if [ -n "$PREV" ] && git merge-base --is-ancestor "$PREV" HEAD; then
+            RANGE="$PREV..HEAD"
+          else
+            RANGE=HEAD
+          fi
+          {
+            echo '## What changed'
+            CHANGES=$(git log "$RANGE" --format='- %s' --no-merges -n 12)
+            echo "${CHANGES:-- Maintenance update}"
+            if [ -n "$PREV" ]; then
+              echo
+              echo "[Full changes](https://github.com/${GITHUB_REPOSITORY}/compare/${PREV}...${TAG})"
+            fi
+          } > release-notes.md
       - name: Create GitHub Release
         if: github.event_name != 'workflow_dispatch' || inputs.publish
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
@@ -125,7 +146,7 @@ jobs:
           name: AntennaPod ${{ steps.ver.outputs.version_name }}
           make_latest: true
           target_commitish: ${{ github.sha }}
-          generate_release_notes: true
+          body_path: release-notes.md
           files: ${{ steps.meta.outputs.apk_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
