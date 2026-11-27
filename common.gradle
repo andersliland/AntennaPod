@@ -5,6 +5,7 @@ android {
     defaultConfig {
         minSdk 23
         targetSdk 36
+        manifestPlaceholders["appAuthRedirectScheme"] = "antennapod-admark"
 
         vectorDrawables.useSupportLibrary true
         vectorDrawables.generatedDensities = []
