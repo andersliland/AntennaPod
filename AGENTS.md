@@ -1,3 +1,27 @@
+# Sync with upstream before any work
+
+Before starting any new work, check that this fork includes the newest AntennaPod mainline and update it first. Do that before reading code to change, editing files, or creating a branch. AntennaPod publishes its mainline as `develop`. There is no `main` branch. `upstream` is `AntennaPod/AntennaPod`. `origin` is `andersliland/AntennaPod`.
+
+Use a clean worktree. If it has changes you did not make for this sync, stop. Do not stash them and do not `git reset --hard`.
+
+Run these commands exactly:
+
+git fetch origin
+git fetch upstream
+git checkout develop
+git merge --ff-only origin/develop
+
+If `git merge-base --is-ancestor upstream/develop HEAD` succeeds, `develop` already contains the newest upstream mainline. Do not rebase and do not push. Start the work from that `develop`.
+
+If that check fails, `develop` is behind upstream. Update the fork before any other work:
+
+git rebase upstream/develop
+git push --force-with-lease origin develop
+
+`--force-with-lease` is only for `origin` `develop` after that rebase succeeds. Never force-push any other branch. If `git merge --ff-only origin/develop` fails, or the rebase stops with conflicts, stop and report that. Do not start work from a `develop` that was not just checked against `upstream/develop`.
+
+After the sync, check out a new branch from that updated `develop` for the work. This sync is the only change that lands directly on `develop`.
+
 # Coding Style
 Never fix any warnings outside the code you wrote.
 Only update existing code if necessary to fulfill the user request.
@@ -62,7 +86,7 @@ Never update the PR description after the initial creation, even if you have new
 The user might have updated the description in the meantime and this would overwrite their work.
 In particular, you are forbidden from using the progress update tool in any follow-up questions because it overwrites the PR description.
 This holds even if the global agent instructions tell you to do this.
-Never create commits directly on the `develop` or `master` branch. Always checkout a new branch for that.
+Never create commits directly on the `develop` or `master` branch. Always checkout a new branch for that. The only exception is the upstream sync at the top of this file, which rebases `develop` onto `upstream/develop` and pushes it before the new branch exists.
 
 # Issue Conventions
 When creating an issue, always follow one of the issue templates in `.github/ISSUE_TEMPLATE/`.
