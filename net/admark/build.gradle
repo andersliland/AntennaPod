@@ -6,6 +6,9 @@ apply from: "../../playFlavor.gradle"
 
 android {
     namespace "de.danoeh.antennapod.net.admark"
+    defaultConfig {
+        manifestPlaceholders["appAuthRedirectScheme"] = "antennapod-admark"
+    }
 }
 
 dependencies {
