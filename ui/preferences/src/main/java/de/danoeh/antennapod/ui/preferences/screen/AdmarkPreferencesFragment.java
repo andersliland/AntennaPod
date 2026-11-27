@@ -39,6 +39,11 @@ public class AdmarkPreferencesFragment extends AnimatedPreferenceFragment {
         if (enabled != null) {
             enabled.setOnPreferenceChangeListener((preference, newValue) -> {
                 boolean on = Boolean.TRUE.equals(newValue);
+                if (on && !AdmarkAuth.isSignedIn(requireContext())) {
+                    Toast.makeText(requireContext(), R.string.pref_admark_sign_in_required,
+                            Toast.LENGTH_LONG).show();
+                    return false;
+                }
                 AdmarkPreferences.setEnabled(on);
                 if (on) {
                     AdmarkIntegration.routeAllViaAdmark();
