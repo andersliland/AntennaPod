@@ -40,12 +40,18 @@ public abstract class AdmarkPreferences {
     private static final String KEY_MIGRATION_DONE = "proxyMigrationDone";
 
     private static SharedPreferences prefs;
+    private static Context appContext;
 
     private AdmarkPreferences() {
     }
 
     public static void init(Context context) {
+        appContext = context.getApplicationContext();
         prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+    }
+
+    public static Context getContext() {
+        return appContext;
     }
 
     private static boolean ready() {

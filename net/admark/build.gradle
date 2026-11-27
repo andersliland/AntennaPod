@@ -17,6 +17,8 @@ dependencies {
 
     annotationProcessor libs.androidx.annotation
     implementation libs.okhttp
+    implementation libs.appauth
+    implementation libs.androidx.security.crypto
     implementation libs.commons.lang3
     implementation libs.androidx.work.runtime
 
