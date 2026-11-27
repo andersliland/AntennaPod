@@ -223,6 +223,7 @@ public final class AdmarkService {
                 }
             }
         }
+        invalidate(item);
         enqueueAnalysisIfNeeded(item);
     }
 
@@ -463,6 +464,9 @@ public final class AdmarkService {
     public void invalidate(@Nullable FeedItem item) {
         if (item != null) {
             cache.remove(cacheKey(item));
+            scanAttempts.remove(cacheKey(item));
+            verifiedAudio.remove(item.getId());
+            playbackRanges.remove(item.getId());
         }
     }
 
