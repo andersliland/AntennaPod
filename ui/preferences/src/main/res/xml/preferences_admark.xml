@@ -23,14 +23,12 @@
             android:key="prefAdmarkSignIn"
             android:title="@string/pref_admark_sign_in_title"
             android:summary="@string/pref_admark_sign_in_sum"
-            android:dependency="prefAdmarkEnabled"
             search:ignore="true"/>
 
     <Preference
             android:key="prefAdmarkSignOut"
             android:title="@string/pref_admark_sign_out_title"
             android:summary="@string/pref_admark_sign_out_sum"
-            android:dependency="prefAdmarkEnabled"
             search:ignore="true"/>
 
     <SwitchPreferenceCompat
