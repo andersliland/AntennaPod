@@ -38,6 +38,7 @@ public final class AdmarkPlaybackController {
     }
 
     public void onPlayableChanged(@Nullable FeedMedia media) {
+        mainHandler.removeCallbacksAndMessages(null);
         ranges = Collections.emptyList();
         if (media == null || media.getItem() == null || host == null
                 || !AdmarkPreferences.isEnabled() || !AdmarkPreferences.isAutoSkipEnabled()) {
@@ -64,6 +65,9 @@ public final class AdmarkPlaybackController {
                     onPositionMs(host.getPositionMs());
                 } else {
                     ranges = Collections.emptyList();
+                    if (marks.getStatus() == AdmarkEpisodeMarks.Status.PENDING) {
+                        mainHandler.postDelayed(() -> onPlayableChanged(media), 15000);
+                    }
                 }
             });
         });

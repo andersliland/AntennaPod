@@ -1,6 +1,7 @@
 package de.danoeh.antennapod.net.admark;
 
 import android.content.Context;
+import android.os.SystemClock;
 import android.text.TextUtils;
 import android.util.Log;
 import android.util.LruCache;
@@ -16,6 +17,11 @@ import de.danoeh.antennapod.storage.database.DBReader;
 import de.danoeh.antennapod.storage.database.DBWriter;
 import de.danoeh.antennapod.storage.preferences.AdmarkPreferences;
 
+import okhttp3.HttpUrl;
+import org.json.JSONException;
+
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -33,11 +39,13 @@ public final class AdmarkService {
     private static final AdmarkService INSTANCE = new AdmarkService();
 
     private final AdmarkClient client = new AdmarkClient();
+    private final Map<Long, String> verifiedAudio = new ConcurrentHashMap<>();
+    private final Map<Long, List<AdmarkSkipRange>> playbackRanges = new ConcurrentHashMap<>();
     private final LruCache<String, AdmarkEpisodeMarks> cache = new LruCache<>(64);
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final ExecutorService scanExecutor = Executors.newSingleThreadExecutor();
     private final Map<String, List<AdmarkScanSummary.Listener>> scanListeners = new HashMap<>();
-    private final Set<String> scanAttempts = Collections.newSetFromMap(new ConcurrentHashMap<>());
+    private final Map<String, Long> scanAttempts = new ConcurrentHashMap<>();
     private final Object proxyLock = new Object();
     private Context appContext;
 
@@ -215,6 +223,7 @@ public final class AdmarkService {
                 }
             }
         }
+        invalidate(item);
         enqueueAnalysisIfNeeded(item);
     }
 
@@ -262,20 +271,60 @@ public final class AdmarkService {
         return cacheKey(item);
     }
 
+    @Nullable
+    public AdmarkScanSummary getStoredScan(@NonNull FeedItem item) {
+        AdmarkEpisodeMarks marks = cache.get(cacheKey(item));
+        AdmarkScanSummary summary = marks == null
+                ? AdmarkScanSummary.parse(AdmarkPreferences.getScanSummary(cacheKey(item)))
+                : AdmarkScanSummary.fromMarks(marks);
+        String signature = audioSignature(item);
+        return summary == null ? null : summary.withAudioReady(
+                signature != null && signature.equals(verifiedAudio.get(item.getId())));
+    }
+
+    @Nullable
+    private static String audioSignature(FeedItem item) {
+        FeedMedia media = item.getMedia();
+        if (media == null || !media.isDownloaded() || TextUtils.isEmpty(media.getLocalFileUrl())) {
+            return null;
+        }
+        File file = new File(media.getLocalFileUrl());
+        return file.isFile() ? file.getPath() + "|" + file.length() + "|" + file.lastModified() : null;
+    }
+
+    @Nullable
+    private AdmarkScanSummary summaryFor(FeedItem item, AdmarkEpisodeMarks marks) {
+        AdmarkScanSummary summary = AdmarkScanSummary.fromMarks(marks);
+        if (summary != null && summary.getStatus() == AdmarkScanSummary.Status.READY) {
+            String signature = audioSignature(item);
+            boolean ready = signature != null && audioShaMatches(item, marks);
+            if (ready) {
+                verifiedAudio.put(item.getId(), signature);
+            } else {
+                verifiedAudio.remove(item.getId());
+            }
+            return summary.withAudioReady(ready);
+        }
+        return summary;
+    }
+
     public void refreshStoredScan(@NonNull FeedItem item, @Nullable AdmarkScanSummary.Listener listener) {
         if (!canTrack(item)) {
             dispatch(listener, null);
             return;
         }
         String key = cacheKey(item);
-        String stored = AdmarkPreferences.getScanSummary(key);
-        if (stored != null) {
-            dispatch(listener, AdmarkScanSummary.parse(stored));
+        AdmarkScanSummary storedSummary = getStoredScan(item);
+        if (storedSummary != null && storedSummary.getStatus() == AdmarkScanSummary.Status.READY
+                && storedSummary.isAudioReady()) {
+            dispatch(listener, storedSummary);
             return;
         }
         synchronized (scanListeners) {
-            if (scanAttempts.contains(key) && !scanListeners.containsKey(key)) {
-                dispatch(listener, null);
+            Long lastAttempt = scanAttempts.get(key);
+            if (lastAttempt != null && SystemClock.elapsedRealtime() - lastAttempt < 10000
+                    && !scanListeners.containsKey(key)) {
+                dispatch(listener, storedSummary);
                 return;
             }
             List<AdmarkScanSummary.Listener> listeners = scanListeners.get(key);
@@ -283,7 +332,7 @@ public final class AdmarkService {
             if (start) {
                 listeners = new ArrayList<>();
                 scanListeners.put(key, listeners);
-                scanAttempts.add(key);
+                scanAttempts.put(key, SystemClock.elapsedRealtime());
             }
             if (listener != null) {
                 listeners.add(listener);
@@ -293,9 +342,9 @@ public final class AdmarkService {
             }
         }
         scanExecutor.execute(() -> {
-            AdmarkScanSummary summary = null;
+            AdmarkScanSummary summary = storedSummary;
             try {
-                summary = AdmarkScanSummary.fromMarks(ensureMarksInternal(item, false, false));
+                summary = summaryFor(item, ensureMarksInternal(item, false, false));
             } catch (Exception e) {
                 Log.d(TAG, "refreshStoredScan failed: " + e.getMessage());
             }
@@ -311,16 +360,87 @@ public final class AdmarkService {
         });
     }
 
+    @Nullable
+    public String getCanonicalAudioUrl(@Nullable FeedItem item) {
+        if (!canTrack(item) || item.getFeed() == null || TextUtils.isEmpty(item.getItemIdentifier())) {
+            return null;
+        }
+        String base = AdmarkPreferences.getBaseUrl();
+        String podcastId = AdmarkPreferences.getPodcastId(item.getFeedId());
+        String proxied = AdmarkPreferences.getProxiedFeedUrl(item.getFeedId());
+        HttpUrl proxyUrl = proxied == null ? null : HttpUrl.parse(proxied);
+        HttpUrl baseUrl = HttpUrl.parse(base);
+        String token = proxyUrl == null ? null : proxyUrl.queryParameter("token");
+        if (proxyUrl == null || baseUrl == null || !proxyUrl.host().equals(baseUrl.host())
+                || !proxyUrl.scheme().equals(baseUrl.scheme()) || proxyUrl.port() != baseUrl.port()
+                || TextUtils.isEmpty(token) || TextUtils.isEmpty(podcastId)) {
+            try {
+                String original = AdmarkIntegration.getOriginalFeedUrl(item.getFeed());
+                if (TextUtils.isEmpty(original)) {
+                    return null;
+                }
+                AdmarkSubscriptionResult result = client.registerSubscription(original, item.getFeed().getTitle());
+                podcastId = result.getPodcastId();
+                token = result.getAccessToken();
+                if (TextUtils.isEmpty(token) && result.getProxiedFeedUrl() != null) {
+                    HttpUrl registered = HttpUrl.parse(result.getProxiedFeedUrl());
+                    token = registered == null ? null : registered.queryParameter("token");
+                }
+            } catch (IOException | JSONException e) {
+                Log.d(TAG, "canonical audio unavailable");
+                return null;
+            }
+        }
+        return AdmarkAudioUrl.build(base, podcastId, item.getItemIdentifier(), token);
+    }
+
+    public void analyzeEpisode(@NonNull FeedItem item, @Nullable AdmarkScanSummary.Listener listener) {
+        if (!canTrack(item)) {
+            dispatch(listener, null);
+            return;
+        }
+        scanExecutor.execute(() -> {
+            AdmarkEpisodeMarks marks;
+            try {
+                marks = client.enqueueAnalyze(item);
+                if (marks.getStatus() == AdmarkEpisodeMarks.Status.READY) {
+                    marks = client.fetchMarks(item);
+                }
+            } catch (IOException | JSONException e) {
+                marks = AdmarkEpisodeMarks.failed();
+            }
+            String key = cacheKey(item);
+            cache.put(key, marks);
+            persistScan(key, marks);
+            scanAttempts.remove(key);
+            dispatch(listener, summaryFor(item, marks));
+        });
+    }
+
+    @NonNull
+    public List<AdmarkSkipRange> getPlaybackRanges(@Nullable FeedItem item) {
+        if (!canTrack(item)) {
+            return Collections.emptyList();
+        }
+        List<AdmarkSkipRange> ranges = playbackRanges.get(item.getId());
+        return ranges == null ? Collections.emptyList() : ranges;
+    }
+
     @NonNull
     public AdmarkEpisodeMarks getMarksForPlayback(@NonNull FeedItem item) {
         if (!canTrack(item)) {
             return AdmarkEpisodeMarks.missing();
         }
+        playbackRanges.remove(item.getId());
         try {
             AdmarkEpisodeMarks marks = ensureMarksInternal(item, true, true);
             if (marks.hasSkippableRanges() && !audioShaMatches(item, marks)) {
                 Log.d(TAG, "skip marks withheld: audio_sha256 mismatch");
                 return AdmarkEpisodeMarks.missing();
+            }
+            summaryFor(item, marks);
+            if (marks.hasSkippableRanges()) {
+                playbackRanges.put(item.getId(), marks.getRanges());
             }
             return marks;
         } catch (Exception e) {
@@ -344,6 +464,9 @@ public final class AdmarkService {
     public void invalidate(@Nullable FeedItem item) {
         if (item != null) {
             cache.remove(cacheKey(item));
+            scanAttempts.remove(cacheKey(item));
+            verifiedAudio.remove(item.getId());
+            playbackRanges.remove(item.getId());
         }
     }
 

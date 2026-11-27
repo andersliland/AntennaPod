@@ -28,6 +28,7 @@ public class HorizontalItemViewHolder extends RecyclerView.ViewHolder {
     public final ImageView secondaryActionIcon;
     private final SquareImageView cover;
     private final TextView title;
+    private final TextView admarkBadge;
     private final TextView date;
     private final ProgressBar progressBar;
     private final CircularProgressBar circularProgressBar;
@@ -43,6 +44,7 @@ public class HorizontalItemViewHolder extends RecyclerView.ViewHolder {
         card = itemView.findViewById(R.id.card);
         cover = itemView.findViewById(R.id.cover);
         title = itemView.findViewById(R.id.titleLabel);
+        admarkBadge = itemView.findViewById(R.id.admarkBadge);
         date = itemView.findViewById(R.id.dateLabel);
         secondaryActionIcon = itemView.findViewById(R.id.secondaryActionIcon);
         circularProgressBar = itemView.findViewById(R.id.circularProgressBar);
@@ -61,6 +63,8 @@ public class HorizontalItemViewHolder extends RecyclerView.ViewHolder {
                 .withFallbackUri(item.getFeed().getImageUrl())
                 .withCoverView(cover)
                 .load();
+        AdmarkEpisodeBadge.bind(admarkBadge, null, item, activity,
+                id -> this.item != null && this.item.getId() == id, null);
         title.setText(item.getTitle());
         date.setText(DateFormatter.formatAbbrev(activity, item.getPubDate()));
         date.setContentDescription(DateFormatter.formatForAccessibility(item.getPubDate()));
@@ -99,6 +103,8 @@ public class HorizontalItemViewHolder extends RecyclerView.ViewHolder {
     }
 
     public void bindDummy() {
+        this.item = null;
+        admarkBadge.setVisibility(View.GONE);
         card.setAlpha(0.1f);
         new CoverLoader()
                 .withResource(android.R.color.transparent)

@@ -101,6 +101,14 @@
                 android:visibility="gone" />
 
             <TextView
+                android:id="@+id/admarkBadge"
+                android:layout_width="128dp"
+                android:layout_height="wrap_content"
+                android:padding="4dp"
+                android:textSize="11sp"
+                android:visibility="gone" />
+
+            <TextView
                 android:id="@+id/titleLabel"
                 android:layout_width="128dp"
                 android:layout_height="wrap_content"

@@ -270,8 +270,7 @@ public class EpisodeItemViewHolder extends RecyclerView.ViewHolder {
                 || isInQueue.getVisibility() == View.VISIBLE
                 || isVideo.getVisibility() == View.VISIBLE
                 || isFavorite.getVisibility() == View.VISIBLE
-                || isInbox.getVisibility() == View.VISIBLE
-                || admarkBadge.getVisibility() == View.VISIBLE;
+                || isInbox.getVisibility() == View.VISIBLE;
         separatorIcons.setVisibility(hasIcons ? View.VISIBLE : View.GONE);
     }
 }

@@ -7,9 +7,16 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.AttributeSet;
 import de.danoeh.antennapod.R;
+import de.danoeh.antennapod.net.admark.AdmarkSkipRange;
+import java.util.Collections;
+import java.util.List;
 import de.danoeh.antennapod.ui.common.ThemeUtils;
 
 public class ChapterSeekBar extends androidx.appcompat.widget.AppCompatSeekBar {
+
+    private List<AdmarkSkipRange> adRanges = Collections.emptyList();
+    private long durationMs;
+    private final Paint paintAds = new Paint();
 
     private float top;
     private float width;
@@ -43,6 +50,7 @@ public class ChapterSeekBar extends androidx.appcompat.widget.AppCompatSeekBar {
         dividerPos = null;
         density = context.getResources().getDisplayMetrics().density;
 
+        paintAds.setColor(0xFFFF9800);
         paintBackground.setColor(ThemeUtils.getColorFromAttr(getContext(), R.attr.colorSurfaceVariant));
         paintBackground.setAlpha(128);
         paintProgressPrimary.setColor(ThemeUtils.getColorFromAttr(getContext(), R.attr.colorPrimary));
@@ -61,6 +69,12 @@ public class ChapterSeekBar extends androidx.appcompat.widget.AppCompatSeekBar {
         } else {
             this.dividerPos = null;
         }
+        invalidate();
+    }
+
+    public void setAdRanges(List<AdmarkSkipRange> ranges, long durationMs) {
+        this.adRanges = ranges == null ? Collections.emptyList() : ranges;
+        this.durationMs = durationMs;
         invalidate();
     }
 
@@ -88,6 +102,19 @@ public class ChapterSeekBar extends androidx.appcompat.widget.AppCompatSeekBar {
             drawProgress(canvas);
         } else {
             drawProgressChapters(canvas);
+        }
+        if (durationMs > 0 && !adRanges.isEmpty()) {
+            final int saveCount = canvas.save();
+            canvas.translate(getPaddingLeft(), getPaddingTop());
+            for (AdmarkSkipRange range : adRanges) {
+                if (!range.isValid()) {
+                    continue;
+                }
+                float left = Math.max(0, Math.min(1, range.getStartMs() / (float) durationMs)) * width;
+                float right = Math.max(0, Math.min(1, range.getEndMs() / (float) durationMs)) * width;
+                canvas.drawRect(left, top - density, right, bottom + density, paintAds);
+            }
+            canvas.restoreToCount(saveCount);
         }
         drawThumb(canvas);
     }
