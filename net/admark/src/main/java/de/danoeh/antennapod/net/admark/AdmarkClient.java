@@ -37,8 +37,7 @@ public class AdmarkClient {
                 return AdmarkEpisodeMarks.missing();
             }
             if (!response.isSuccessful()) {
-                Log.w(TAG, "fetchMarks HTTP " + response.code());
-                return AdmarkEpisodeMarks.failed();
+                throw new IOException("fetchMarks HTTP " + response.code());
             }
             String body = response.body() == null ? "" : response.body().string();
             return AdmarkResponseParser.parse(body);
@@ -109,8 +108,7 @@ public class AdmarkClient {
                 return AdmarkEpisodeMarks.missing();
             }
             if (!response.isSuccessful()) {
-                Log.w(TAG, "fetchJob HTTP " + response.code());
-                return AdmarkEpisodeMarks.failed();
+                throw new IOException("fetchJob HTTP " + response.code());
             }
             String body = response.body() == null ? "" : response.body().string();
             return AdmarkResponseParser.parse(body);

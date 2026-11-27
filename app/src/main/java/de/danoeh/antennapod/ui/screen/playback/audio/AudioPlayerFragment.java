@@ -65,6 +65,8 @@ import de.danoeh.antennapod.ui.episodeslist.FeedItemMenuHandler;
 import de.danoeh.antennapod.model.feed.Chapter;
 import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
+import de.danoeh.antennapod.net.admark.AdmarkIntegration;
+import de.danoeh.antennapod.ui.episodeslist.AdmarkEpisodeBadge;
 import de.danoeh.antennapod.playback.cast.CastEnabledActivity;
 import de.danoeh.antennapod.storage.preferences.UserPreferences;
 import io.reactivex.rxjava3.core.Maybe;
@@ -87,6 +89,8 @@ public class AudioPlayerFragment extends Fragment implements
     private TextView txtvPosition;
     private TextView txtvLength;
     private ChapterSeekBar sbPosition;
+    private TextView admarkLegend;
+    private TextView admarkStatus;
     private ImageButton butRev;
     private TextView txtvRev;
     private PlayButton butPlay;
@@ -125,6 +129,8 @@ public class AudioPlayerFragment extends Fragment implements
 
         txtvPlaybackSpeed = root.findViewById(R.id.txtvPlaybackSpeed);
         sbPosition = root.findViewById(R.id.sbPosition);
+        admarkLegend = root.findViewById(R.id.admarkLegend);
+        admarkStatus = root.findViewById(R.id.admarkStatus);
         txtvPosition = root.findViewById(R.id.txtvPosition);
         txtvLength = root.findViewById(R.id.txtvLength);
         butRev = root.findViewById(R.id.butRev);
@@ -303,6 +309,10 @@ public class AudioPlayerFragment extends Fragment implements
         updatePosition(new PlaybackPositionEvent(currentMedia.getPosition(), currentMedia.getDuration()));
         updatePlaybackSpeedButton(new SpeedChangedEvent(PlaybackSpeedUtils.getCurrentPlaybackSpeed(currentMedia)));
         setChapterDividers();
+        if (currentMedia.getItem() != null && getActivity() != null) {
+            AdmarkEpisodeBadge.bind(null, admarkStatus, currentMedia.getItem(), getActivity(),
+                    id -> currentMedia != null && currentMedia.getItemId() == id, null);
+        }
         setupOptionsMenu();
         boolean isPlaying = PlaybackServiceInterface.isPlaying
                 && PlaybackPreferences.getCurrentPlayerStatus() == PlaybackPreferences.PLAYER_STATUS_PLAYING;
@@ -360,6 +370,11 @@ public class AudioPlayerFragment extends Fragment implements
             return;
         }
 
+        sbPosition.setAdRanges(AdmarkIntegration.getPlaybackRanges(
+                currentMedia == null ? null : currentMedia.getItem()), event.getDuration());
+        admarkLegend.setVisibility(currentMedia != null
+                && !AdmarkIntegration.getPlaybackRanges(currentMedia.getItem()).isEmpty()
+                ? View.VISIBLE : View.GONE);
         float playbackSpeed = currentMedia != null ? PlaybackSpeedUtils.getCurrentPlaybackSpeed(currentMedia) : 1.0f;
         TimeSpeedConverter converter = new TimeSpeedConverter(playbackSpeed);
         int convertedPosition = converter.convert(event.getPosition());

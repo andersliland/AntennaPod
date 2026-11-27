@@ -16,11 +16,34 @@ public final class AdmarkScanSummary {
     private final Status status;
     private final int segmentCount;
     private final long totalAdMs;
+    private String stage;
+    private int percent = -1;
+    private boolean audioReady;
 
     private AdmarkScanSummary(Status status, int segmentCount, long totalAdMs) {
         this.status = status;
         this.segmentCount = segmentCount;
         this.totalAdMs = totalAdMs;
+    }
+
+    public boolean isAudioReady() {
+        return audioReady;
+    }
+
+    public AdmarkScanSummary withAudioReady(boolean ready) {
+        AdmarkScanSummary summary = new AdmarkScanSummary(status, segmentCount, totalAdMs);
+        summary.stage = stage;
+        summary.percent = percent;
+        summary.audioReady = ready;
+        return summary;
+    }
+
+    public String getStage() {
+        return stage;
+    }
+
+    public int getPercent() {
+        return percent;
     }
 
     public Status getStatus() {
@@ -38,7 +61,7 @@ public final class AdmarkScanSummary {
     public int getTrafficLightColor() {
         switch (status) {
             case READY:
-                return 0xFF2E7D32;
+                return audioReady ? 0xFF2E7D32 : 0xFF9E9E9E;
             case PENDING:
                 return 0xFFF9A825;
             case FAILED:
@@ -57,7 +80,10 @@ public final class AdmarkScanSummary {
         if (status == null) {
             return null;
         }
-        return new AdmarkScanSummary(status, marks.getSegmentCount(), marks.getTotalAdMs());
+        AdmarkScanSummary summary = new AdmarkScanSummary(status, marks.getSegmentCount(), marks.getTotalAdMs());
+        summary.stage = marks.getStage();
+        summary.percent = marks.getPercent();
+        return summary;
     }
 
     @Nullable

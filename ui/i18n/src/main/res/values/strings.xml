@@ -479,9 +479,8 @@
     <string name="pref_admark_include_title">Include in admark</string>
     <string name="pref_admark_include_sum">Register this podcast and analyze its episodes</string>
     <string name="admark_badge">Admark</string>
-    <string name="admark_detail_ready">%1$s · %2$s · %3$s</string>
-    <string name="admark_detail_pending">%1$s · Analyzing</string>
-    <string name="admark_detail_failed">%1$s · Analysis failed</string>
+    <string name="admark_detail_ready">%1$s · Ready to listen · %2$s · %3$s</string>
+    <string name="admark_detail_failed">%1$s · Analysis failed · Tap to retry</string>
     <plurals name="admark_segments">
         <item quantity="one">%d ad segment</item>
         <item quantity="other">%d ad segments</item>
@@ -1098,4 +1097,19 @@
     <string name="wearos_play_on_phone" tools:ignore="UnusedResources">Play on phone</string>
     <string name="wearos_browse_phone" tools:ignore="UnusedResources">Browse phone</string>
     <string name="wearos_open_on_phone" tools:ignore="UnusedResources">Open on phone</string>
+    <string name="admark_analyze_episode">Analyze with AdMark</string>
+    <string name="admark_submitting">AdMark · requesting analysis…</string>
+    <string name="admark_ready">AdMark · Ready to listen</string>
+    <string name="admark_no_ads">AdMark · Ready to listen · No ads found</string>
+    <string name="admark_queued">AdMark · queued</string>
+    <string name="admark_running">AdMark · analyzing</string>
+    <string name="admark_transcribing">AdMark · transcribing</string>
+    <string name="admark_detecting">AdMark · finding ads</string>
+    <string name="admark_saving">AdMark · saving results</string>
+    <string name="admark_stage_percent">%1$s · %2$d%% of this stage</string>
+    <string name="admark_timeline_legend">Orange sections are AdMark ad ranges</string>
+    <string name="admark_download_audio">AdMark · Analysis complete · Download analyzed audio</string>
+    <string name="admark_replace_audio">Download analyzed audio?</string>
+    <string name="admark_replace_audio_message">Replace the current download with the exact audio AdMark analyzed so ad skipping works correctly.</string>
+    <string name="admark_download_failed">Could not replace the download. Please try again.</string>
 </resources>

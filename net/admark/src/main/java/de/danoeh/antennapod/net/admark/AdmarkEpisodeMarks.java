@@ -16,6 +16,8 @@ public class AdmarkEpisodeMarks {
     private final List<AdmarkSkipRange> ranges;
     private final String jobId;
     private final String audioSha256;
+    private String stage;
+    private int percent = -1;
 
     public AdmarkEpisodeMarks(Status status, List<AdmarkSkipRange> ranges) {
         this(status, ranges, null, null);
@@ -30,6 +32,20 @@ public class AdmarkEpisodeMarks {
         this.ranges = ranges == null ? Collections.emptyList() : ranges;
         this.jobId = jobId;
         this.audioSha256 = audioSha256;
+    }
+
+    public AdmarkEpisodeMarks withProgress(String stage, int percent) {
+        this.stage = stage;
+        this.percent = percent >= 0 && percent <= 100 ? percent : -1;
+        return this;
+    }
+
+    public String getStage() {
+        return stage;
+    }
+
+    public int getPercent() {
+        return percent;
     }
 
     public Status getStatus() {
