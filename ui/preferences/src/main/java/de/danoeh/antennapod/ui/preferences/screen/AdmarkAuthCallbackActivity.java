@@ -13,6 +13,8 @@ import net.openid.appauth.AuthorizationResponse;
 import net.openid.appauth.AuthorizationService;
 
 public class AdmarkAuthCallbackActivity extends Activity {
+    public static final String EXTRA_ENABLE_AFTER_SIGN_IN = "enableAfterSignIn";
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -33,6 +35,9 @@ public class AdmarkAuthCallbackActivity extends Activity {
                 try {
                     AdmarkAuth.save(getApplicationContext(), state);
                     AdmarkPreferences.setToken("");
+                    if (getIntent().getBooleanExtra(EXTRA_ENABLE_AFTER_SIGN_IN, false)) {
+                        AdmarkPreferences.setEnabled(true);
+                    }
                     AdmarkIntegration.routeAllViaAdmark();
                 } catch (java.io.IOException saveError) {
                     success = false;

@@ -9,6 +9,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.preference.EditTextPreference;
 import androidx.preference.Preference;
 import androidx.preference.SwitchPreferenceCompat;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import de.danoeh.antennapod.net.admark.AdmarkAuth;
 import de.danoeh.antennapod.net.admark.AdmarkIntegration;
 import de.danoeh.antennapod.storage.preferences.AdmarkPreferences;
@@ -32,6 +33,10 @@ public class AdmarkPreferencesFragment extends AnimatedPreferenceFragment {
         ((AppCompatActivity) getActivity()).getSupportActionBar().setTitle(R.string.pref_admark_title);
         refreshProxyStatus();
         refreshSignInStatus();
+        SwitchPreferenceCompat enabled = findPreference(AdmarkPreferences.PREF_ENABLED);
+        if (enabled != null) {
+            enabled.setChecked(AdmarkPreferences.isEnabled());
+        }
     }
 
     private void setupScreen() {
@@ -39,6 +44,15 @@ public class AdmarkPreferencesFragment extends AnimatedPreferenceFragment {
         if (enabled != null) {
             enabled.setOnPreferenceChangeListener((preference, newValue) -> {
                 boolean on = Boolean.TRUE.equals(newValue);
+                if (on && !AdmarkAuth.isSignedIn(requireContext())) {
+                    new MaterialAlertDialogBuilder(requireContext())
+                            .setMessage(R.string.pref_admark_sign_in_required)
+                            .setPositiveButton(R.string.pref_admark_sign_in_title,
+                                    (dialog, which) -> startSignIn(true))
+                            .setNegativeButton(android.R.string.cancel, null)
+                            .show();
+                    return false;
+                }
                 AdmarkPreferences.setEnabled(on);
                 if (on) {
                     AdmarkIntegration.routeAllViaAdmark();
@@ -61,27 +75,7 @@ public class AdmarkPreferencesFragment extends AnimatedPreferenceFragment {
         Preference signIn = findPreference("prefAdmarkSignIn");
         if (signIn != null) {
             signIn.setOnPreferenceClickListener(preference -> {
-                AuthorizationServiceConfiguration.fetchFromIssuer(Uri.parse(AdmarkAuth.ISSUER),
-                        (configuration, error) -> {
-                            if (!isAdded()) {
-                                return;
-                            }
-                            if (configuration == null || error != null) {
-                                Toast.makeText(requireContext(), R.string.pref_admark_sign_in_failed,
-                                        Toast.LENGTH_LONG).show();
-                                return;
-                            }
-                            AuthorizationRequest request = new AuthorizationRequest.Builder(configuration,
-                                    AdmarkAuth.CLIENT_ID, ResponseTypeValues.CODE, AdmarkAuth.REDIRECT_URI)
-                                    .setScopes("openid", "email", "profile", "offline_access")
-                                    .build();
-                            Intent callback = new Intent(requireContext(), AdmarkAuthCallbackActivity.class);
-                            PendingIntent pending = PendingIntent.getActivity(requireContext(), 0, callback,
-                                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
-                            AuthorizationService service = new AuthorizationService(requireContext());
-                            service.performAuthorizationRequest(request, pending);
-                            service.dispose();
-                        });
+                startSignIn(false);
                 return true;
             });
         }
@@ -125,6 +119,31 @@ public class AdmarkPreferencesFragment extends AnimatedPreferenceFragment {
         }
 
         refreshProxyStatus();
+    }
+
+    private void startSignIn(boolean enableAfterSignIn) {
+        AuthorizationServiceConfiguration.fetchFromIssuer(Uri.parse(AdmarkAuth.ISSUER),
+                (configuration, error) -> {
+                    if (!isAdded()) {
+                        return;
+                    }
+                    if (configuration == null || error != null) {
+                        Toast.makeText(requireContext(), R.string.pref_admark_sign_in_failed,
+                                Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    AuthorizationRequest request = new AuthorizationRequest.Builder(configuration,
+                            AdmarkAuth.CLIENT_ID, ResponseTypeValues.CODE, AdmarkAuth.REDIRECT_URI)
+                            .setScopes("openid", "email", "profile", "offline_access")
+                            .build();
+                    Intent callback = new Intent(requireContext(), AdmarkAuthCallbackActivity.class);
+                    callback.putExtra(AdmarkAuthCallbackActivity.EXTRA_ENABLE_AFTER_SIGN_IN, enableAfterSignIn);
+                    PendingIntent pending = PendingIntent.getActivity(requireContext(), 0, callback,
+                            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
+                    AuthorizationService service = new AuthorizationService(requireContext());
+                    service.performAuthorizationRequest(request, pending);
+                    service.dispose();
+                });
     }
 
     private void refreshSignInStatus() {
