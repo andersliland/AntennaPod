@@ -11,6 +11,15 @@ Whenever you add a user-visible string, add it to `:ui:i18n` so it can be transl
 Only ever edit the English strings file at `ui/i18n/src/main/res/values/strings.xml`. Never modify translated strings files under `values-*/`.
 Never reference the full package name of classes directly in the code, use imports.
 
+# Android Release Notes
+For every app change that reaches a release, write a clear, user-facing commit
+subject describing what changed. The release workflow builds its
+`## What changed` notes from these subjects. Before calling the release done,
+check the published GitHub Release body for a useful description; edit it if the generated
+notes are vague or omit the change. Obtainium shows that body. Check the
+matching version's changelog in the private Alto F-Droid index after its refresh,
+and report separately if the APK or index rollout is still pending.
+
 # Running and Testing
 After you are sure that the code is correct, ensure that there are no compilation errors (warnings are okay).
 To compile the code, use `./gradlew :app:assembleDebug`.
