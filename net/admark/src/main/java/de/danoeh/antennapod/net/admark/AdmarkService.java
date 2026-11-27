@@ -37,7 +37,7 @@ public final class AdmarkService {
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final ExecutorService scanExecutor = Executors.newSingleThreadExecutor();
     private final Map<String, List<AdmarkScanSummary.Listener>> scanListeners = new HashMap<>();
-    private final Set<String> scanAttempts = ConcurrentHashMap.newKeySet();
+    private final Set<String> scanAttempts = Collections.newSetFromMap(new ConcurrentHashMap<>());
     private final Object proxyLock = new Object();
     private Context appContext;
 

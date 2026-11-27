@@ -457,9 +457,6 @@
     <string name="pref_admark_enabled_sum">Fetch skippable ad ranges from your admark service</string>
     <string name="pref_admark_base_url_title">Service base URL</string>
     <string name="pref_admark_base_url_sum">Default https://admark.liland.xyz (override for Tailscale/home)</string>
-    <string name="pref_admark_token_title">Auth token</string>
-    <string name="pref_admark_token_sum">Optional X-Alto-Token value (stored on device only)</string>
-    <string name="pref_admark_token_set_sum">Token saved</string>
     <string name="pref_admark_sign_in_title">Sign in with Alto</string>
     <string name="pref_admark_sign_in_sum">Use your Alto account for Admark</string>
     <string name="pref_admark_sign_out_title">Sign out of Admark</string>
