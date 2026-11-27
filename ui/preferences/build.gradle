@@ -52,6 +52,7 @@ dependencies {
     implementation libs.rxjava
     implementation libs.glide
     implementation libs.okhttp
+    implementation libs.appauth
     implementation libs.okhttp.urlconnection
     implementation libs.eventbus
     implementation libs.preferencesearch

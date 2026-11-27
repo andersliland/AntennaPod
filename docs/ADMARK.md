@@ -45,14 +45,14 @@ Default base URL: `https://admark.liland.xyz`.
 
 | Surface | Auth |
 | --- | --- |
-| `/api/*` | `X-Alto-Token` (Settings → admark token) |
+| `/api/*` | Alto access token (`Authorization: Bearer …`); sign in under Settings → admark |
 | `/feeds/*`, `/audio/*` | Query `?token=<subscription access_token>` only (embedded in `proxied_feed_url`) |
 
 ### Subscribe
 
 ```http
 POST /api/subscriptions
-X-Alto-Token: <token>
+Authorization: Bearer <Alto access token>
 Content-Type: application/json
 
 { "feed_url": "https://feeds.megaphone.fm/history102" }

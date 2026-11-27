@@ -211,10 +211,11 @@ public class AdmarkClient {
         return feed.getDownloadUrl();
     }
 
-    private void addAuth(Request.Builder builder) {
-        String token = AdmarkPreferences.getToken();
-        if (!TextUtils.isEmpty(token)) {
-            builder.header(AdmarkApiPaths.AUTH_HEADER, token);
+    private void addAuth(Request.Builder builder) throws IOException {
+        String token = AdmarkAuth.freshAccessToken();
+        if (TextUtils.isEmpty(token)) {
+            throw new IOException("Sign in with Alto to use Admark");
         }
+        builder.header("Authorization", "Bearer " + token);
     }
 }

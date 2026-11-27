@@ -459,6 +459,13 @@
     <string name="pref_admark_token_title">Auth token</string>
     <string name="pref_admark_token_sum">Optional X-Alto-Token value (stored on device only)</string>
     <string name="pref_admark_token_set_sum">Token saved</string>
+    <string name="pref_admark_sign_in_title">Sign in with Alto</string>
+    <string name="pref_admark_sign_in_sum">Use your Alto account for Admark</string>
+    <string name="pref_admark_sign_out_title">Sign out of Admark</string>
+    <string name="pref_admark_sign_out_sum">Existing podcast feed links remain active</string>
+    <string name="pref_admark_signed_in">Signed in to Admark</string>
+    <string name="pref_admark_sign_in_failed">Admark sign-in failed</string>
+    <string name="pref_admark_signed_out">Signed out of Admark</string>
     <string name="pref_admark_auto_skip_title">Auto-skip ads</string>
     <string name="pref_admark_auto_skip_sum">Automatically seek past admark ranges during playback</string>
     <string name="pref_admark_auto_enqueue_title">Analyze new episodes</string>
