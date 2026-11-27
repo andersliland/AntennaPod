@@ -8,6 +8,15 @@ android {
     namespace "de.danoeh.antennapod.net.admark"
     defaultConfig {
         manifestPlaceholders["appAuthRedirectScheme"] = "antennapod-admark"
+        buildConfigField "String", "REDIRECT_URI", '"antennapod-admark://auth/callback"'
+    }
+    buildFeatures {
+        buildConfig true
+    }
+    buildTypes {
+        debug {
+            buildConfigField "String", "REDIRECT_URI", '"antennapod-admark-debug://auth/callback"'
+        }
     }
 }
 

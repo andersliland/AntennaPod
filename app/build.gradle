@@ -39,12 +39,25 @@ android {
             keyAlias project.getProperties().getOrDefault("releaseKeyAlias", "alias")
             keyPassword project.getProperties().getOrDefault("releaseKeyPassword", "password")
         }
+        devConfig {
+            enableV1Signing true
+            enableV2Signing true
+            storeFile rootProject.file(project.getProperties().getOrDefault("devStoreFile", "keystore-dev"))
+            storePassword project.getProperties().getOrDefault("devStorePassword", "password")
+            keyAlias project.getProperties().getOrDefault("devKeyAlias", "alias")
+            keyPassword project.getProperties().getOrDefault("devKeyPassword", "password")
+        }
     }
 
     buildTypes {
         debug {
             applicationIdSuffix ".debug"
+            versionNameSuffix "-dev"
+            manifestPlaceholders["appAuthRedirectScheme"] = "antennapod-admark-debug"
             resValue "string", "provider_authority", "xyz.liland.antennapod.debug.provider"
+            if (signingConfigs.devConfig.storeFile != null && signingConfigs.devConfig.storeFile.exists()) {
+                signingConfig signingConfigs.devConfig
+            }
         }
         release {
             resValue "string", "provider_authority", "xyz.liland.antennapod.provider"

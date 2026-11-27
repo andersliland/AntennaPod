@@ -6,7 +6,11 @@
 #
 # JDK 21 is required. JAVA_HOME is pinned so a JDK 17 Gradle daemon is not used.
 
+ifeq ($(shell uname -s),Darwin)
 JAVA_HOME := /Library/Java/JavaVirtualMachines/zulu-21.jdk/Contents/Home
+else
+JAVA_HOME := /home/linuxbrew/.linuxbrew/opt/openjdk@21
+endif
 export JAVA_HOME
 
 SERIAL ?= R3CRA0J9ANY

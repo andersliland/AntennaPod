@@ -19,7 +19,7 @@ import org.json.JSONException;
 public final class AdmarkAuth {
     public static final String ISSUER = "https://auth.liland.xyz/application/o/admark-antennapod/";
     public static final String CLIENT_ID = "admark-antennapod";
-    public static final Uri REDIRECT_URI = Uri.parse("antennapod-admark://auth/callback");
+    public static final Uri REDIRECT_URI = Uri.parse(BuildConfig.REDIRECT_URI);
     private static final String STATE_KEY = "auth_state";
     private static final Object TOKEN_REFRESH_LOCK = new Object();
 
