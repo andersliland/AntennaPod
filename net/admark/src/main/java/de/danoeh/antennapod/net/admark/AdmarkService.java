@@ -521,26 +521,17 @@ public final class AdmarkService {
         }
     }
 
-    private boolean audioShaMatches(@NonNull FeedItem item, @NonNull AdmarkEpisodeMarks marks) {
+    static boolean audioShaMatches(@NonNull FeedItem item, @NonNull AdmarkEpisodeMarks marks) {
         String expected = marks.getAudioSha256();
         if (TextUtils.isEmpty(expected)) {
-            expected = AdmarkPreferences.getExpectedAudioSha256(shaKey(item));
-        }
-        if (TextUtils.isEmpty(expected)) {
-            return true;
+            return false;
         }
         FeedMedia media = item.getMedia();
         if (media != null && media.isDownloaded() && !TextUtils.isEmpty(media.getLocalFileUrl())) {
             String actual = AdmarkSha256.hexOfFile(media.getLocalFileUrl());
-            if (actual != null) {
-                return AdmarkSha256.matches(expected, actual);
-            }
+            return AdmarkSha256.matches(expected, actual);
         }
-        String fromHeader = AdmarkPreferences.getExpectedAudioSha256(shaKey(item));
-        if (!TextUtils.isEmpty(fromHeader)) {
-            return AdmarkSha256.matches(expected, fromHeader);
-        }
-        return true;
+        return false;
     }
 
     private static String shaKey(@NonNull FeedItem item) {
