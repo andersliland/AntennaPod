@@ -21,6 +21,7 @@ public final class AdmarkAuth {
     public static final String CLIENT_ID = "admark-antennapod";
     public static final Uri REDIRECT_URI = Uri.parse("antennapod-admark://auth/callback");
     private static final String STATE_KEY = "auth_state";
+    private static final Object TOKEN_REFRESH_LOCK = new Object();
 
     private AdmarkAuth() {
     }
@@ -70,14 +71,25 @@ public final class AdmarkAuth {
 
     public static boolean isSignedIn(Context context) {
         try {
-            return load(context).getRefreshToken() != null;
+            return isSignedIn(load(context));
         } catch (IOException exception) {
             return false;
         }
     }
 
+    static boolean isSignedIn(AuthState state) {
+        return state.isAuthorized() && state.getRefreshToken() != null;
+    }
+
     @Nullable
     public static String freshAccessToken() throws IOException {
+        synchronized (TOKEN_REFRESH_LOCK) {
+            return refreshAccessToken();
+        }
+    }
+
+    @Nullable
+    private static String refreshAccessToken() throws IOException {
         Context context = AdmarkPreferences.getContext();
         if (context == null) {
             throw new IOException("Admark preferences are not initialized");
