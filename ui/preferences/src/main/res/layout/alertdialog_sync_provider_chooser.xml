@@ -12,7 +12,6 @@
         android:id="@+id/icon"
         android:layout_width="48dp"
         android:layout_height="48dp"
-        android:layout_marginRight="16dip"
         android:layout_marginEnd="16dip"
         android:importantForAccessibility="no"
         android:layout_gravity="center_vertical" />
