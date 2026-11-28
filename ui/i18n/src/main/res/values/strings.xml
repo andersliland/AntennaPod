@@ -478,6 +478,13 @@
     <string name="pref_admark_route_all_sum">Register every subscription and switch download URLs to the proxied feed</string>
     <string name="pref_admark_auth_status_title">Sign-in status</string>
     <string name="pref_admark_auth_status_ok">Signed in; access tokens refresh automatically</string>
+    <string name="pref_admark_signed_in_as">Signed in as %s</string>
+    <string name="pref_admark_stats_title">Ads skipped</string>
+    <string name="pref_admark_stats_none">None yet this install</string>
+    <string name="pref_admark_stats_value">%1$d ads · %2$s of playback saved</string>
+    <string name="pref_admark_reconcile_title">Reconcile subscriptions</string>
+    <string name="pref_admark_reconcile_sum">Remove admark subscriptions for podcasts no longer in this library</string>
+    <string name="pref_admark_reconcile_started">Reconciling in the background…</string>
     <string name="pref_admark_include_title">Include in admark</string>
     <string name="pref_admark_include_sum">Register this podcast and analyze its episodes</string>
     <string name="admark_badge">Admark</string>
@@ -488,6 +495,8 @@
         <item quantity="other">%d ad segments</item>
     </plurals>
     <string name="admark_skipped_snackbar">Skipped ad</string>
+    <string name="admark_next_ad_in">Next ad in %s</string>
+    <string name="admark_legend_done">All ad ranges passed</string>
     <string name="synchronization_sum">Synchronize with other devices</string>
     <string name="automation">Automation</string>
     <string name="download_pref_details">Details</string>

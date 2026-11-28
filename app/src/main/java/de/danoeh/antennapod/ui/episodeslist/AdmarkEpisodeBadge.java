@@ -48,11 +48,20 @@ public final class AdmarkEpisodeBadge {
         anchor.setEnabled(true);
         anchor.setTag(R.id.admarkBinding, binding);
         anchor.addOnAttachStateChangeListener(binding);
+        if (activity instanceof androidx.lifecycle.LifecycleOwner) {
+            ((androidx.lifecycle.LifecycleOwner) activity).getLifecycle()
+                    .addObserver(binding.lifecycleObserver);
+        }
         binding.show(AdmarkIntegration.getStoredScan(item));
         binding.run();
     }
 
     private static final class Binding implements Runnable, View.OnAttachStateChangeListener {
+        /** Visible rows stop re-querying after this many attempts per binding. */
+        private static final int MAX_POLLS = 40;
+        private static final long POLL_DELAY_MS = 15000L;
+        private static final long POLL_JITTER_MS = 5000L;
+
         private final TextView badge;
         private final TextView detail;
         private final TextView anchor;
@@ -60,7 +69,9 @@ public final class AdmarkEpisodeBadge {
         private final Activity activity;
         private final StillBound stillBound;
         private final Runnable onApplied;
+        private final androidx.lifecycle.LifecycleEventObserver lifecycleObserver;
         private boolean stopped;
+        private int polls = 0;
 
         Binding(TextView badge, TextView detail, FeedItem item, Activity activity,
                 StillBound stillBound, Runnable onApplied) {
@@ -71,6 +82,16 @@ public final class AdmarkEpisodeBadge {
             this.activity = activity;
             this.stillBound = stillBound;
             this.onApplied = onApplied;
+            this.lifecycleObserver = (source, event) -> {
+                if (event == androidx.lifecycle.Lifecycle.Event.ON_PAUSE) {
+                    anchor.removeCallbacks(this);
+                } else if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                    if (current()) {
+                        show(AdmarkIntegration.getStoredScan(item));
+                        run();
+                    }
+                }
+            };
         }
 
         private boolean current() {
@@ -142,9 +163,17 @@ public final class AdmarkEpisodeBadge {
 
         void schedule() {
             anchor.removeCallbacks(this);
-            if (current() && anchor.isAttachedToWindow() && AdmarkIntegration.shouldQueryScan(item)) {
-                anchor.postDelayed(this, 15000);
+            if (stopped || !current() || !anchor.isAttachedToWindow()
+                    || !AdmarkIntegration.shouldQueryScan(item)) {
+                return;
             }
+            if (polls >= MAX_POLLS) {
+                return;
+            }
+            polls++;
+            // Jitter keeps a long episode list from re-querying in one herd
+            long delay = POLL_DELAY_MS + (long) (Math.random() * POLL_JITTER_MS);
+            anchor.postDelayed(this, delay);
         }
 
         @Override
@@ -162,6 +191,10 @@ public final class AdmarkEpisodeBadge {
             stopped = true;
             anchor.removeCallbacks(this);
             anchor.removeOnAttachStateChangeListener(this);
+            if (activity instanceof androidx.lifecycle.LifecycleOwner) {
+                ((androidx.lifecycle.LifecycleOwner) activity).getLifecycle()
+                        .removeObserver(lifecycleObserver);
+            }
         }
 
         @Override

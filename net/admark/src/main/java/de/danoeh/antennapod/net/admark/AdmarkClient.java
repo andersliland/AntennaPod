@@ -195,6 +195,31 @@ public class AdmarkClient {
         }
     }
 
+    @Nullable
+    public java.util.List<AdmarkSubscriptionResult> fetchSubscriptions() throws IOException {
+        String base = AdmarkPreferences.getBaseUrl();
+        if (TextUtils.isEmpty(base)) {
+            return null;
+        }
+        HttpUrl url = HttpUrl.parse(base + AdmarkApiPaths.SUBSCRIPTIONS_PATH);
+        if (url == null) {
+            return null;
+        }
+        Request.Builder builder = new Request.Builder().url(url).get();
+        addAuth(builder);
+        try (Response response = execute(builder, true)) {
+            if (!response.isSuccessful()) {
+                throw new IOException("fetchSubscriptions HTTP " + response.code());
+            }
+            String body = response.body() == null ? "" : response.body().string();
+            try {
+                return AdmarkResponseParser.parseSubscriptions(body);
+            } catch (JSONException e) {
+                throw new IOException("Malformed subscriptions response", e);
+            }
+        }
+    }
+
     public void unregisterSubscription(@Nullable String feedUrl, @Nullable String podcastId)
             throws IOException {
         String base = AdmarkPreferences.getBaseUrl();

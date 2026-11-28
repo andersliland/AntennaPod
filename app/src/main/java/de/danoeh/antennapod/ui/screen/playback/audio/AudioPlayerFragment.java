@@ -66,6 +66,7 @@ import de.danoeh.antennapod.model.feed.Chapter;
 import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
 import de.danoeh.antennapod.net.admark.AdmarkIntegration;
+import de.danoeh.antennapod.net.admark.AdmarkSkipRange;
 import de.danoeh.antennapod.ui.episodeslist.AdmarkEpisodeBadge;
 import de.danoeh.antennapod.playback.cast.CastEnabledActivity;
 import de.danoeh.antennapod.storage.preferences.UserPreferences;
@@ -370,12 +371,30 @@ public class AudioPlayerFragment extends Fragment implements
             return;
         }
 
-        sbPosition.setAdRanges(AdmarkIntegration.getPlaybackRanges(
-                currentMedia == null ? null : currentMedia.getItem()), event.getDuration());
-        admarkLegend.setVisibility(currentMedia != null
-                && !AdmarkIntegration.getPlaybackRanges(currentMedia.getItem()).isEmpty()
-                ? View.VISIBLE : View.GONE);
         float playbackSpeed = currentMedia != null ? PlaybackSpeedUtils.getCurrentPlaybackSpeed(currentMedia) : 1.0f;
+        java.util.List<AdmarkSkipRange> adRangesForLegend = AdmarkIntegration.getPlaybackRanges(
+                currentMedia == null ? null : currentMedia.getItem());
+        sbPosition.setAdRanges(adRangesForLegend, event.getDuration(), event.getPosition());
+        if (currentMedia != null && !adRangesForLegend.isEmpty()) {
+            admarkLegend.setVisibility(View.VISIBLE);
+            long nextAdStartMs = -1;
+            for (AdmarkSkipRange range : adRangesForLegend) {
+                if (range.isValid() && range.getStartMs() > event.getPosition()
+                        && (nextAdStartMs < 0 || range.getStartMs() < nextAdStartMs)) {
+                    nextAdStartMs = range.getStartMs();
+                }
+            }
+            if (nextAdStartMs >= 0) {
+                // Countdown in wall-clock time: playback speed shrinks it
+                long untilAdMs = Math.max(0, (long) ((nextAdStartMs - event.getPosition()) / playbackSpeed));
+                admarkLegend.setText(getString(R.string.admark_next_ad_in,
+                        Converter.getDurationStringLong((int) untilAdMs)));
+            } else {
+                admarkLegend.setText(R.string.admark_legend_done);
+            }
+        } else if (currentMedia != null) {
+            admarkLegend.setVisibility(View.GONE);
+        }
         TimeSpeedConverter converter = new TimeSpeedConverter(playbackSpeed);
         int convertedPosition = converter.convert(event.getPosition());
         int convertedDuration = converter.convert(event.getDuration());

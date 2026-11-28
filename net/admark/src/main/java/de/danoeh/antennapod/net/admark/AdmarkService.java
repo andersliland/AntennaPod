@@ -37,6 +37,7 @@ public final class AdmarkService {
     private static final int MAX_POLL_ATTEMPTS = 5;
     private static final long POLL_DELAY_MS = 1500L;
     private static final long STREAM_VERIFY_TTL_MS = 10 * 60 * 1000L;
+    private static final int SCAN_SUMMARY_MAX_ENTRIES = 250;
     private static final AdmarkService INSTANCE = new AdmarkService();
 
     private final AdmarkClient client = new AdmarkClient();
@@ -48,6 +49,7 @@ public final class AdmarkService {
     private final ExecutorService scanExecutor = Executors.newFixedThreadPool(2);
     private final Map<String, List<AdmarkScanSummary.Listener>> scanListeners = new HashMap<>();
     private final Map<String, Long> scanAttempts = new ConcurrentHashMap<>();
+    private final Set<String> autoEnqueueInFlight = ConcurrentHashMap.newKeySet();
     private final Object proxyLock = new Object();
     private Context appContext;
 
@@ -60,17 +62,53 @@ public final class AdmarkService {
 
     public void init(@NonNull Context context) {
         this.appContext = context.getApplicationContext();
+        pruneScanSummaries();
+    }
+
+    /** Caps persisted per-episode scan summaries so prefs cannot grow forever. */
+    private void pruneScanSummaries() {
+        try {
+            java.util.List<String> keys = AdmarkPreferences.getScanSummaryKeys();
+            if (keys.size() <= SCAN_SUMMARY_MAX_ENTRIES) {
+                return;
+            }
+            StringBuilder order = new StringBuilder(AdmarkPreferences.getScanOrder());
+            for (String key : keys) {
+                if (order.indexOf(key) < 0) {
+                    if (order.length() > 0) {
+                        order.append(',');
+                    }
+                    order.append(key);
+                }
+            }
+            AdmarkKeyLru.Result result = AdmarkKeyLru.push(order.toString(), "", SCAN_SUMMARY_MAX_ENTRIES);
+            AdmarkPreferences.putScanOrder(result.order);
+            for (String evicted : result.evicted) {
+                AdmarkPreferences.removeScanSummary(evicted);
+            }
+            Log.i(TAG, "pruned " + result.evicted.size() + " old scan summaries");
+        } catch (Exception e) {
+            Log.d(TAG, "scan summary prune failed: " + e.getMessage());
+        }
     }
 
     public void enqueueAnalysisIfNeeded(@Nullable FeedItem item) {
         if (!canTrack(item) || !AdmarkPreferences.isAutoEnqueueEnabled()) {
             return;
         }
-        executor.execute(() -> {
+        final String key = cacheKey(item);
+        // Bulk feed refreshes enqueue many episodes; keep them off the proxy
+        // executor and skip episodes that already have a scan in flight.
+        if (!autoEnqueueInFlight.add(key)) {
+            return;
+        }
+        scanExecutor.execute(() -> {
             try {
                 ensureMarksInternal(item, true, false);
             } catch (Exception e) {
                 Log.d(TAG, "enqueueAnalysisIfNeeded failed: " + e.getMessage());
+            } finally {
+                autoEnqueueInFlight.remove(key);
             }
         });
     }
@@ -220,6 +258,68 @@ public final class AdmarkService {
             return;
         }
         AdmarkPreferences.setRefreshFailureCount(feed.getId(), 0);
+    }
+
+    /**
+     * Deletes AdMark subscriptions whose podcast is no longer in the local
+     * library (unsubscribe attempts that failed while offline, reinstalls).
+     * Reports the outcome via the proxy status shown on the settings screen.
+     */
+    public void reconcileSubscriptions() {
+        executor.execute(() -> {
+            if (!AdmarkPreferences.isEnabled() || !AdmarkAuth.isSignedIn(AdmarkPreferences.getContext())) {
+                return;
+            }
+            try {
+                java.util.Set<String> localOriginals = new java.util.HashSet<>();
+                for (Feed feed : DBReader.getFeedList()) {
+                    if (feed == null || feed.isLocalFeed()) {
+                        continue;
+                    }
+                    String original = AdmarkPreferences.getOriginalFeedUrl(feed.getId());
+                    localOriginals.add(!TextUtils.isEmpty(original) ? original : feed.getDownloadUrl());
+                }
+                java.util.List<AdmarkSubscriptionResult> remote = client.fetchSubscriptions();
+                int deleted = 0;
+                if (remote != null) {
+                    for (AdmarkSubscriptionResult subscription : remote) {
+                        String original = !TextUtils.isEmpty(subscription.getFeedUrl())
+                                ? subscription.getFeedUrl() : null;
+                        if (original == null || localOriginals.contains(original)) {
+                            continue;
+                        }
+                        try {
+                            client.unregisterSubscription(original, subscription.getId());
+                            deleted++;
+                        } catch (IOException e) {
+                            Log.d(TAG, "reconcile delete failed: " + e.getMessage());
+                        }
+                    }
+                }
+                AdmarkPreferences.setProxyStatus(AdmarkPreferences.STATUS_OK,
+                        deleted == 0 ? "Subscriptions in sync" : "Removed " + deleted + " stale subscription(s)");
+            } catch (Exception e) {
+                Log.d(TAG, "reconcileSubscriptions failed: " + e.getMessage());
+                AdmarkPreferences.setProxyStatus(AdmarkPreferences.STATUS_ERROR,
+                        "Reconcile failed: " + e.getMessage());
+            }
+        });
+    }
+
+    public void recordSkip(long skippedMs) {
+        if (skippedMs <= 0) {
+            return;
+        }
+        AdmarkSkipStats stats = AdmarkSkipStats.parse(AdmarkPreferences.getSkipStats());
+        if (stats == null) {
+            stats = new AdmarkSkipStats(0, 0);
+        }
+        AdmarkPreferences.setSkipStats(stats.withSkip(skippedMs).encode());
+    }
+
+    @Nullable
+    public AdmarkSkipStats getSkipStats() {
+        return AdmarkSkipStats.parse(AdmarkPreferences.getSkipStats());
     }
 
     public void onAudioDownloaded(@Nullable FeedItem item, @Nullable String expectedSha256,
@@ -640,6 +740,12 @@ public final class AdmarkService {
         String encoded = AdmarkScanSummary.encode(marks);
         if (encoded != null) {
             AdmarkPreferences.putScanSummary(key, encoded);
+            AdmarkKeyLru.Result result = AdmarkKeyLru.push(
+                    AdmarkPreferences.getScanOrder(), key, SCAN_SUMMARY_MAX_ENTRIES);
+            AdmarkPreferences.putScanOrder(result.order);
+            for (String evicted : result.evicted) {
+                AdmarkPreferences.removeScanSummary(evicted);
+            }
         }
     }
 

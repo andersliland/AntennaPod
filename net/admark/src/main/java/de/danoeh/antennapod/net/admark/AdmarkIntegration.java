@@ -74,6 +74,15 @@ public final class AdmarkIntegration {
         AdmarkService.getInstance().onFeedRefreshed(feed);
     }
 
+    public static void reconcileSubscriptions() {
+        AdmarkService.getInstance().reconcileSubscriptions();
+    }
+
+    @Nullable
+    public static AdmarkSkipStats getSkipStats() {
+        return AdmarkService.getInstance().getSkipStats();
+    }
+
     public static void routeAllViaAdmark() {
         AdmarkService.getInstance().routeAllViaAdmark();
     }

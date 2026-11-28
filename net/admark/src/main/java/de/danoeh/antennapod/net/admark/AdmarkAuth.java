@@ -80,6 +80,17 @@ public final class AdmarkAuth {
         }
     }
 
+    /** Email (or name) of the signed-in account, parsed from the id token. */
+    @Nullable
+    public static String signedInAccount(Context context) {
+        try {
+            String idToken = load(context).getIdToken();
+            return AdmarkIdToken.displayName(idToken);
+        } catch (IOException exception) {
+            return null;
+        }
+    }
+
     static boolean isSignedIn(AuthState state) {
         return state.isAuthorized() && state.getRefreshToken() != null;
     }

@@ -53,6 +53,10 @@ jobs:
             ~/.gradle/caches
             ~/.gradle/wrapper
           key: gradle-${{ hashFiles('**/*.gradle*') }}-${{ hashFiles('**/gradle/wrapper/gradle-wrapper.properties') }}
+      - name: Run admark unit tests
+        run: ./gradlew :net:admark:testFreeReleaseUnitTest --console=plain
+      - name: Compile debug variant (smoke build)
+        run: ./gradlew :app:assembleFreeDebug --console=plain
       - name: Configure parallel build
         run: echo "org.gradle.parallel=true" >> local.properties
       - name: Decode release keystore

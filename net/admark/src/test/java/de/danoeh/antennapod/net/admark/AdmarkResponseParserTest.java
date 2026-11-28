@@ -50,4 +50,30 @@ public class AdmarkResponseParserTest {
         assertEquals(AdmarkEpisodeMarks.Status.PENDING, marks.getStatus());
         assertEquals("abc", marks.getJobId());
     }
+
+    @Test
+    public void parseSubscriptionsAcceptsBareArray() throws Exception {
+        java.util.List<AdmarkSubscriptionResult> subs = AdmarkResponseParser.parseSubscriptions(
+                "[{\"id\":\"p1\",\"feed_url\":\"https://feeds.example.com/show\"},"
+                        + "{\"id\":\"p2\",\"feed_url\":\"https://feeds.example.com/other\"}]");
+        assertEquals(2, subs.size());
+        assertEquals("p1", subs.get(0).getId());
+        assertEquals("https://feeds.example.com/show", subs.get(0).getFeedUrl());
+    }
+
+    @Test
+    public void parseSubscriptionsAcceptsWrappedArray() throws Exception {
+        java.util.List<AdmarkSubscriptionResult> subs = AdmarkResponseParser.parseSubscriptions(
+                "{\"subscriptions\":[{\"id\":\"p1\",\"feed_url\":\"https://feeds.example.com/show\"}]}");
+        assertEquals(1, subs.size());
+        assertEquals("p1", subs.get(0).getId());
+    }
+
+    @Test
+    public void parseSubscriptionsEmptyVariants() throws Exception {
+        assertEquals(0, AdmarkResponseParser.parseSubscriptions("[]").size());
+        assertEquals(0, AdmarkResponseParser.parseSubscriptions("{\"subscriptions\":[]}").size());
+        assertEquals(0, AdmarkResponseParser.parseSubscriptions("").size());
+        assertEquals(0, AdmarkResponseParser.parseSubscriptions("{}").size());
+    }
 }

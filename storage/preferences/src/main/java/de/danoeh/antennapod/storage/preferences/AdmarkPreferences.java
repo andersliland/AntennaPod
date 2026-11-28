@@ -42,6 +42,8 @@ public abstract class AdmarkPreferences {
     private static final String KEY_REFRESH_FAIL_PREFIX = "refreshFail.";
     private static final String KEY_SHA_CACHE_PREFIX = "shaCache.";
     private static final String KEY_SHA_CACHE_ORDER = "shaCacheOrder";
+    private static final String KEY_SCAN_ORDER = "scanOrder";
+    private static final String KEY_SKIP_STATS = "skipStats";
     private static final int SHA_CACHE_MAX_ENTRIES = 24;
 
     private static SharedPreferences prefs;
@@ -342,6 +344,56 @@ public abstract class AdmarkPreferences {
         }
         String value = prefs.getString(KEY_SCAN_PREFIX + key, null);
         return TextUtils.isEmpty(value) ? null : value;
+    }
+
+    public static void removeScanSummary(@NonNull String key) {
+        if (!ready() || TextUtils.isEmpty(key)) {
+            return;
+        }
+        prefs.edit().remove(KEY_SCAN_PREFIX + key).apply();
+    }
+
+    /** Keys of all stored scan summaries, without the prefix. */
+    @NonNull
+    public static java.util.List<String> getScanSummaryKeys() {
+        java.util.List<String> keys = new java.util.ArrayList<>();
+        if (!ready()) {
+            return keys;
+        }
+        for (String key : prefs.getAll().keySet()) {
+            if (key.startsWith(KEY_SCAN_PREFIX)) {
+                keys.add(key.substring(KEY_SCAN_PREFIX.length()));
+            }
+        }
+        return keys;
+    }
+
+    /** Most-recently-updated ordering of scan summary keys (CSV). */
+    @NonNull
+    public static String getScanOrder() {
+        String order = ready() ? prefs.getString(KEY_SCAN_ORDER, null) : null;
+        return order == null ? "" : order;
+    }
+
+    public static void putScanOrder(@NonNull String order) {
+        if (!ready()) {
+            return;
+        }
+        prefs.edit().putString(KEY_SCAN_ORDER, order).apply();
+    }
+
+    /** Raw "count|savedMs" totals of skipped ads; parsed by net:admark. */
+    public static void setSkipStats(@Nullable String encoded) {
+        if (!ready()) {
+            return;
+        }
+        prefs.edit().putString(KEY_SKIP_STATS, encoded == null ? "" : encoded).apply();
+    }
+
+    @NonNull
+    public static String getSkipStats() {
+        String value = ready() ? prefs.getString(KEY_SKIP_STATS, null) : null;
+        return value == null ? "" : value;
     }
 
     /** Last auth failure message, shown on the Admark settings screen. */

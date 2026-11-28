@@ -4,6 +4,8 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import androidx.annotation.NonNull;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -17,6 +19,41 @@ public final class AdmarkResponseParser {
             return new AdmarkSubscriptionResult(null, null, null, null);
         }
         JSONObject root = new JSONObject(body);
+        return parseSubscriptionObject(root);
+    }
+
+    /**
+     * Parses the GET /api/subscriptions listing, accepting both a bare array
+     * and an object wrapping the array under "subscriptions".
+     */
+    @NonNull
+    public static java.util.List<AdmarkSubscriptionResult> parseSubscriptions(String body)
+            throws JSONException {
+        java.util.List<AdmarkSubscriptionResult> result = new ArrayList<>();
+        if (body == null || body.trim().isEmpty()) {
+            return result;
+        }
+        String trimmed = body.trim();
+        JSONArray array;
+        if (trimmed.startsWith("[")) {
+            array = new JSONArray(trimmed);
+        } else {
+            JSONObject root = new JSONObject(trimmed);
+            array = root.optJSONArray("subscriptions");
+            if (array == null) {
+                return result;
+            }
+        }
+        for (int i = 0; i < array.length(); i++) {
+            JSONObject entry = array.optJSONObject(i);
+            if (entry != null) {
+                result.add(parseSubscriptionObject(entry));
+            }
+        }
+        return result;
+    }
+
+    private static AdmarkSubscriptionResult parseSubscriptionObject(JSONObject root) throws JSONException {
         String id = firstString(root, AdmarkApiPaths.JSON_ID, "podcast_id", "podcastId");
         String proxied = firstString(root, AdmarkApiPaths.JSON_PROXIED_FEED_URL, "proxiedFeedUrl");
         String feedUrl = firstString(root, AdmarkApiPaths.JSON_FEED_URL, "original_feed_url", "originalFeedUrl");

@@ -35,6 +35,7 @@ public class AdmarkPreferencesFragment extends AnimatedPreferenceFragment {
         refreshProxyStatus();
         refreshSignInStatus();
         refreshAuthStatus();
+        refreshSkipStats();
         SwitchPreferenceCompat enabled = findPreference(AdmarkPreferences.PREF_ENABLED);
         if (enabled != null) {
             enabled.setChecked(AdmarkPreferences.isEnabled());
@@ -112,6 +113,24 @@ public class AdmarkPreferencesFragment extends AnimatedPreferenceFragment {
             });
         }
 
+        Preference authStatus = findPreference("prefAdmarkAuthStatus");
+        if (authStatus != null) {
+            authStatus.setOnPreferenceClickListener(preference -> {
+                refreshAuthStatus();
+                refreshSkipStats();
+                return true;
+            });
+        }
+
+        Preference reconcile = findPreference("prefAdmarkReconcile");
+        if (reconcile != null) {
+            reconcile.setOnPreferenceClickListener(preference -> {
+                AdmarkIntegration.reconcileSubscriptions();
+                Toast.makeText(requireContext(), R.string.pref_admark_reconcile_started, Toast.LENGTH_SHORT).show();
+                return true;
+            });
+        }
+
         Preference routeAll = findPreference(AdmarkPreferences.PREF_ROUTE_ALL);
         if (routeAll != null) {
             routeAll.setOnPreferenceClickListener(preference -> {
@@ -152,8 +171,13 @@ public class AdmarkPreferencesFragment extends AnimatedPreferenceFragment {
     private void refreshSignInStatus() {
         Preference signIn = findPreference("prefAdmarkSignIn");
         if (signIn != null && getContext() != null) {
-            signIn.setSummary(AdmarkAuth.isSignedIn(getContext())
-                    ? R.string.pref_admark_signed_in : R.string.pref_admark_sign_in_sum);
+            String account = AdmarkAuth.signedInAccount(getContext());
+            if (AdmarkAuth.isSignedIn(getContext()) && !TextUtils.isEmpty(account)) {
+                signIn.setSummary(getString(R.string.pref_admark_signed_in_as, account));
+            } else {
+                signIn.setSummary(AdmarkAuth.isSignedIn(getContext())
+                        ? R.string.pref_admark_signed_in : R.string.pref_admark_sign_in_sum);
+            }
         }
     }
 
@@ -168,6 +192,23 @@ public class AdmarkPreferencesFragment extends AnimatedPreferenceFragment {
                         ? R.string.pref_admark_auth_status_ok
                         : R.string.pref_admark_sign_in_sum)
                 : error);
+    }
+
+    private void refreshSkipStats() {
+        Preference stats = findPreference("prefAdmarkStats");
+        if (stats == null) {
+            return;
+        }
+        de.danoeh.antennapod.net.admark.AdmarkSkipStats skipStats =
+                de.danoeh.antennapod.net.admark.AdmarkIntegration.getSkipStats();
+        if (skipStats == null || skipStats.getCount() == 0) {
+            stats.setSummary(getString(R.string.pref_admark_stats_none));
+        } else {
+            stats.setSummary(getString(R.string.pref_admark_stats_value,
+                    skipStats.getCount(),
+                    de.danoeh.antennapod.net.admark.AdmarkSkipStats.formatSavedTime(
+                            skipStats.getSavedMs())));
+        }
     }
 
     private void refreshProxyStatus() {

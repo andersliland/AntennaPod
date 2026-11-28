@@ -16,7 +16,9 @@ public class ChapterSeekBar extends androidx.appcompat.widget.AppCompatSeekBar {
 
     private List<AdmarkSkipRange> adRanges = Collections.emptyList();
     private long durationMs;
+    private long currentPositionMs = -1;
     private final Paint paintAds = new Paint();
+    private final Paint paintAdsPassed = new Paint();
 
     private float top;
     private float width;
@@ -51,6 +53,8 @@ public class ChapterSeekBar extends androidx.appcompat.widget.AppCompatSeekBar {
         density = context.getResources().getDisplayMetrics().density;
 
         paintAds.setColor(0xFFFF9800);
+        paintAdsPassed.setColor(0xFFFF9800);
+        paintAdsPassed.setAlpha(64);
         paintBackground.setColor(ThemeUtils.getColorFromAttr(getContext(), R.attr.colorSurfaceVariant));
         paintBackground.setAlpha(128);
         paintProgressPrimary.setColor(ThemeUtils.getColorFromAttr(getContext(), R.attr.colorPrimary));
@@ -73,8 +77,13 @@ public class ChapterSeekBar extends androidx.appcompat.widget.AppCompatSeekBar {
     }
 
     public void setAdRanges(List<AdmarkSkipRange> ranges, long durationMs) {
+        setAdRanges(ranges, durationMs, -1);
+    }
+
+    public void setAdRanges(List<AdmarkSkipRange> ranges, long durationMs, long positionMs) {
         this.adRanges = ranges == null ? Collections.emptyList() : ranges;
         this.durationMs = durationMs;
+        this.currentPositionMs = positionMs;
         invalidate();
     }
 
@@ -112,7 +121,10 @@ public class ChapterSeekBar extends androidx.appcompat.widget.AppCompatSeekBar {
                 }
                 float left = Math.max(0, Math.min(1, range.getStartMs() / (float) durationMs)) * width;
                 float right = Math.max(0, Math.min(1, range.getEndMs() / (float) durationMs)) * width;
-                canvas.drawRect(left, top - density, right, bottom + density, paintAds);
+                // Ranges the playhead already passed render dimmed
+                Paint paint = currentPositionMs >= 0 && currentPositionMs >= range.getEndMs()
+                        ? paintAdsPassed : paintAds;
+                canvas.drawRect(left, top - density, right, bottom + density, paint);
             }
             canvas.restoreToCount(saveCount);
         }

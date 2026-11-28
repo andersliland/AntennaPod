@@ -38,6 +38,19 @@
             android:dependency="prefAdmarkEnabled"
             search:ignore="true"/>
 
+    <Preference
+            android:key="prefAdmarkStats"
+            android:title="@string/pref_admark_stats_title"
+            android:dependency="prefAdmarkEnabled"
+            search:ignore="true"/>
+
+    <Preference
+            android:key="prefAdmarkReconcile"
+            android:title="@string/pref_admark_reconcile_title"
+            android:summary="@string/pref_admark_reconcile_sum"
+            android:dependency="prefAdmarkEnabled"
+            search:ignore="true"/>
+
     <SwitchPreferenceCompat
             android:key="prefAdmarkAutoSkip"
             android:title="@string/pref_admark_auto_skip_title"

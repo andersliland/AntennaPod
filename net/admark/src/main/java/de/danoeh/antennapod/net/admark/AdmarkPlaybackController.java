@@ -99,6 +99,7 @@ public final class AdmarkPlaybackController {
         Log.d(TAG, "skip " + positionMs + " -> " + seekTo);
         lastSkipEndMs = seekTo;
         lastSkipAtMs = now;
+        AdmarkService.getInstance().recordSkip(seekTo - positionMs);
         host.seekTo(seekTo);
         host.onSkippedAd();
     }
